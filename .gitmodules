@@ -1,0 +1,3 @@
+[submodule "agentgateway"]
+	path = agentgateway
+	url = ../agentgateway
