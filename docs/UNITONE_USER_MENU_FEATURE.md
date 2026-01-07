@@ -131,7 +131,7 @@ This branch adds an authenticated user menu component with Microsoft and Google 
 
 ### Option 1: Automated Script
 ```bash
-cd /Users/surindersingh/source_code/agentgateway
+cd ~/unitone-agentgateway/agentgateway
 ./deploy/deploy.sh --environment dev --build --tag latest
 ```
 

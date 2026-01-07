@@ -156,7 +156,7 @@ If you want to **enable ACR Tasks as a backup/alternative**, follow these steps:
 
 #### 2. Update Terraform Variables
 ```bash
-cd /Users/surindersingh/source_code/terraform/environments/dev/agentgateway
+cd ~/terraform/environments/dev/agentgateway
 
 # Edit terraform.tfvars
 # Set: github_pat = "ghp_YOUR_TOKEN_HERE"
@@ -188,7 +188,7 @@ az acr task run --name agentgateway-build-task --registry agwimages
 If ACR Tasks are enabled and you want to disable them:
 
 ```bash
-cd /Users/surindersingh/source_code/terraform/environments/dev/agentgateway
+cd ~/terraform/environments/dev/agentgateway
 
 # Option 1: Set github_pat to empty string
 # In terraform.tfvars:
