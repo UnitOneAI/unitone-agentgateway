@@ -1,0 +1,152 @@
+name: Azure Deployment
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      image_tag:
+        description: 'Docker image tag (optional, defaults to commit SHA)'
+        required: false
+        type: string
+
+env:
+  ACR_REGISTRY: agwimages.azurecr.io
+  IMAGE_NAME: unitone-agentgateway
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository with submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+          fetch-depth: 0
+
+      - name: Determine environment and tag
+        id: config
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            ENV="${{ inputs.environment }}"
+            if [ -n "${{ inputs.image_tag }}" ]; then
+              TAG="${{ inputs.image_tag }}"
+            else
+              TAG="${{ github.sha }}"
+            fi
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            ENV="dev"
+            TAG="${{ github.sha }}"
+          else
+            # Pull request - build only, no deploy
+            ENV="none"
+            TAG="pr-${{ github.event.pull_request.number }}"
+          fi
+
+          echo "environment=${ENV}" >> $GITHUB_OUTPUT
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "short_sha=$(echo ${TAG} | cut -c1-7)" >> $GITHUB_OUTPUT
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Build and push Docker image to ACR
+        run: |
+          # Build using az acr build (this handles the Docker build in Azure)
+          az acr build \
+            --registry agwimages \
+            --image ${{ env.IMAGE_NAME }}:${{ steps.config.outputs.short_sha }} \
+            --image ${{ env.IMAGE_NAME }}:latest \
+            --file Dockerfile.acr \
+            --platform linux/amd64 \
+            .
+
+      - name: Deploy to Azure Container App (dev)
+        if: steps.config.outputs.environment == 'dev'
+        run: |
+          az containerapp update \
+            --name unitone-agentgateway \
+            --resource-group mcp-gateway-dev-rg \
+            --image ${{ env.ACR_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.config.outputs.short_sha }}
+
+      - name: Deploy to Azure Container App (staging)
+        if: steps.config.outputs.environment == 'staging'
+        run: |
+          az containerapp update \
+            --name unitone-agentgateway \
+            --resource-group mcp-gateway-staging-rg \
+            --image ${{ env.ACR_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.config.outputs.short_sha }}
+
+      - name: Deploy to Azure Container App (prod)
+        if: steps.config.outputs.environment == 'prod'
+        run: |
+          az containerapp update \
+            --name unitone-agentgateway \
+            --resource-group mcp-gateway-prod-rg \
+            --image ${{ env.ACR_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.config.outputs.short_sha }}
+
+      - name: Get deployment URL
+        if: steps.config.outputs.environment != 'none'
+        id: get_url
+        run: |
+          if [ "${{ steps.config.outputs.environment }}" = "dev" ]; then
+            RG="mcp-gateway-dev-rg"
+          elif [ "${{ steps.config.outputs.environment }}" = "staging" ]; then
+            RG="mcp-gateway-staging-rg"
+          else
+            RG="mcp-gateway-prod-rg"
+          fi
+
+          URL=$(az containerapp show \
+            --name unitone-agentgateway \
+            --resource-group ${RG} \
+            --query properties.configuration.ingress.fqdn \
+            -o tsv)
+
+          echo "url=https://${URL}" >> $GITHUB_OUTPUT
+
+      - name: Verify deployment
+        if: steps.config.outputs.environment != 'none'
+        run: |
+          if [ "${{ steps.config.outputs.environment }}" = "dev" ]; then
+            RG="mcp-gateway-dev-rg"
+          elif [ "${{ steps.config.outputs.environment }}" = "staging" ]; then
+            RG="mcp-gateway-staging-rg"
+          else
+            RG="mcp-gateway-prod-rg"
+          fi
+
+          # Wait for deployment to stabilize
+          sleep 30
+
+          # Check health
+          STATUS=$(az containerapp show \
+            --name unitone-agentgateway \
+            --resource-group ${RG} \
+            --query properties.runningStatus \
+            -o tsv)
+
+          if [ "$STATUS" != "Running" ]; then
+            echo "Deployment failed: status is $STATUS"
+            exit 1
+          fi
+
+          echo "Deployment successful!"
+          echo "UI URL: ${{ steps.get_url.outputs.url }}"
+          echo "MCP Endpoint: ${{ steps.get_url.outputs.url }}/mcp"

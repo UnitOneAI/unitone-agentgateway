@@ -1,10 +1,49 @@
 # UnitOne AgentGateway Wrapper - Makefile
 # Automates build, deployment, and testing workflows
+#
+# Directory Structure Requirements:
+# - This Makefile is in: unitone-agentgateway/
+# - Terraform configs in: ../terraform/environments/{ENV}/agentgateway/
+# - Submodule in: agentgateway/
+#
+# CI/CD Setup Requirements:
+# Ensure both repositories are checked out as siblings:
+#   - actions/checkout@v4 for unitone-agentgateway
+#   - actions/checkout@v4 with path: terraform for terraform repo
+#
+# Example GitHub Actions step:
+#   - uses: actions/checkout@v4
+#     with:
+#       repository: UnitOneAI/terraform
+#       path: terraform
+#       token: ${{ secrets.GITHUB_TOKEN }}
 
-.PHONY: help build build-ui deploy-dev deploy-staging deploy-prod test test-e2e clean update-submodule terraform-init terraform-plan terraform-apply logs-dev logs-staging logs-prod
+.PHONY: help build build-ui deploy-dev deploy-staging deploy-prod test test-e2e clean update-submodule terraform-init terraform-plan terraform-apply logs-dev logs-staging logs-prod check-terraform-dir
 
 # Default environment
 ENV ?= dev
+
+# Terraform directory (relative to this Makefile)
+# Override with: make deploy-dev TERRAFORM_DIR=/custom/path
+TERRAFORM_DIR ?= ../terraform/environments
+
+# Check if terraform directory exists
+check-terraform-dir:
+	@if [ ! -d "$(TERRAFORM_DIR)" ]; then \
+		echo "ERROR: Terraform directory not found at: $(TERRAFORM_DIR)"; \
+		echo ""; \
+		echo "Expected directory structure:"; \
+		echo "  parent/"; \
+		echo "  ├── unitone-agentgateway/  (this repo)"; \
+		echo "  └── terraform/             (sibling repo)"; \
+		echo ""; \
+		echo "Solutions:"; \
+		echo "  1. Clone terraform repo as sibling: git clone <terraform-repo> ../terraform"; \
+		echo "  2. Override path: make deploy-dev TERRAFORM_DIR=/path/to/terraform/environments"; \
+		echo "  3. For CI/CD: Ensure both repos are checked out (see Makefile comments)"; \
+		exit 1; \
+	fi
+
 # Default gateway URL
 GATEWAY_URL_dev := https://unitone-agentgateway.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io
 GATEWAY_URL_staging := https://unitone-agentgateway-staging.azurecontainerapps.io
@@ -52,43 +91,43 @@ build-ui: ## Build only the UI component
 	cd agentgateway/ui && npm install && npm run build
 
 # Deployment targets
-deploy-dev: ## Deploy to development environment
+deploy-dev: check-terraform-dir ## Deploy to development environment
 	@echo "Deploying to development environment..."
-	cd terraform/environments/dev/agentgateway && terraform apply -auto-approve
+	cd $(TERRAFORM_DIR)/dev/agentgateway && terraform apply -auto-approve
 
-deploy-staging: ## Deploy to staging environment
+deploy-staging: check-terraform-dir ## Deploy to staging environment
 	@echo "Deploying to staging environment..."
-	cd terraform/environments/staging/agentgateway && terraform apply -auto-approve
+	cd $(TERRAFORM_DIR)/staging/agentgateway && terraform apply -auto-approve
 
-deploy-prod: ## Deploy to production environment (requires confirmation)
+deploy-prod: check-terraform-dir ## Deploy to production environment (requires confirmation)
 	@echo "WARNING: Deploying to PRODUCTION"
 	@read -p "Are you sure? [y/N] " confirm && [ "$$confirm" = "y" ] || exit 1
-	cd terraform/environments/prod/agentgateway && terraform apply
+	cd $(TERRAFORM_DIR)/prod/agentgateway && terraform apply
 
 # Testing targets
 test: test-e2e ## Run all tests
 
 test-e2e: ## Run E2E tests against development environment
 	@echo "Running E2E tests..."
-	cd tests && \
+	cd agentgateway/tests && \
 	GATEWAY_URL=$(GATEWAY_URL_dev) \
 	./test_venv/bin/python3 e2e_mcp_sse_test.py
 
 test-staging: ## Run E2E tests against staging
 	@echo "Running E2E tests against staging..."
-	cd tests && \
+	cd agentgateway/tests && \
 	GATEWAY_URL=$(GATEWAY_URL_staging) \
 	./test_venv/bin/python3 e2e_mcp_sse_test.py
 
 # Terraform targets
 terraform-init: ## Initialize Terraform for specified environment
-	@cd terraform/environments/$(ENV)/agentgateway && terraform init
+	@cd $(TERRAFORM_DIR)/$(ENV)/agentgateway && terraform init
 
 terraform-plan: ## Plan Terraform changes for specified environment
-	@cd terraform/environments/$(ENV)/agentgateway && terraform plan
+	@cd $(TERRAFORM_DIR)/$(ENV)/agentgateway && terraform plan
 
 terraform-apply: ## Apply Terraform changes for specified environment
-	@cd terraform/environments/$(ENV)/agentgateway && terraform apply
+	@cd $(TERRAFORM_DIR)/$(ENV)/agentgateway && terraform apply
 
 # Submodule management
 update-submodule: ## Update agentgateway submodule to latest

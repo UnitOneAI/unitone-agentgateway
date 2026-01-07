@@ -10,6 +10,221 @@ The deployment process is fully automated using:
 - **Azure Container Registry (ACR)** for Docker image storage
 - **Azure Container Apps** for hosting
 
+---
+
+## Getting Started
+
+### Repository Architecture
+
+The UnitOne AgentGateway uses a **wrapper repository** pattern with git submodules:
+
+```
+unitone-agentgateway/          # Wrapper repository (THIS REPO)
+├── .github/workflows/         # GitHub Actions workflows
+│   └── azure-deploy.yml       # Automated deployment workflow
+├── Dockerfile.acr             # Docker build configuration
+├── docs/                      # Documentation
+├── ui-customizations/         # UnitOne UI branding (optional)
+└── agentgateway/              # Git submodule → original agentgateway source
+    ├── src/                   # Rust source code
+    ├── ui/                    # Next.js UI application
+    └── Cargo.toml             # Rust project configuration
+```
+
+**Key Points**:
+- `unitone-agentgateway` is the wrapper repository that contains customizations and deployment configs
+- `agentgateway` is included as a **git submodule** pointing to the upstream source repository
+- GitHub Actions workflow triggers on push to `unitone-agentgateway`'s `main` branch
+- The workflow automatically initializes the submodule during build
+
+---
+
+### Initial Setup
+
+#### 1. Clone the Repository
+
+```bash
+# Clone with submodules
+git clone --recursive https://github.com/UnitOneAI/unitone-agentgateway.git
+cd unitone-agentgateway
+
+# If you already cloned without --recursive, initialize submodules:
+git submodule update --init --recursive
+```
+
+#### 2. Verify Submodule Setup
+
+```bash
+# Check submodule status
+git submodule status
+
+# Should show something like:
+# abc123def456... agentgateway (heads/main)
+
+# Verify the submodule directory has content
+ls agentgateway/
+# Should show: Cargo.toml, src/, ui/, etc.
+```
+
+---
+
+### Updating the Agentgateway Submodule
+
+When the upstream `agentgateway` repository releases new features or fixes, you need to update the submodule pointer:
+
+#### Step 1: Update the Submodule
+
+```bash
+cd unitone-agentgateway
+
+# Navigate into the submodule
+cd agentgateway
+
+# Fetch latest changes from upstream
+git fetch origin
+
+# Checkout the desired version (usually main branch or a specific tag)
+git checkout origin/main
+# OR for a specific version:
+# git checkout v1.2.3
+
+# Return to wrapper repo
+cd ..
+```
+
+#### Step 2: Commit the Submodule Update
+
+```bash
+# The submodule pointer change will show as modified
+git status
+# Shows: modified:   agentgateway (new commits)
+
+# Stage the submodule update
+git add agentgateway
+
+# Commit with a descriptive message
+git commit -m "Update agentgateway submodule to latest version
+
+- Includes new feature X
+- Fixes bug Y
+- Version: <commit-sha or tag>"
+
+# Push to trigger deployment
+git push origin main
+```
+
+#### Step 3: Automated Deployment
+
+Once you push the submodule update to `unitone-agentgateway`'s `main` branch:
+
+1. **GitHub Actions Workflow Triggers** (`.github/workflows/azure-deploy.yml`)
+2. **Workflow checks out repository** with `submodules: 'recursive'`
+3. **Docker build uses the updated submodule** version
+4. **Image is built** using the new agentgateway code
+5. **Deployment to Azure** happens automatically
+
+**Example Workflow**:
+
+```bash
+# Developer workflow for submodule update
+cd ~/unitone-agentgateway
+cd agentgateway
+git fetch origin
+git checkout origin/main  # Use latest agentgateway code
+cd ..
+git add agentgateway
+git commit -m "Update agentgateway to include security fixes"
+git push origin main
+
+# Wait 3-5 minutes for GitHub Actions to complete
+# Check deployment at: https://github.com/UnitOneAI/unitone-agentgateway/actions
+```
+
+---
+
+### Developer Workflow
+
+#### Making Changes to UnitOne Customizations
+
+If you're modifying **wrapper repository files** (not the submodule):
+
+```bash
+# Example: Update Dockerfile.acr
+vim Dockerfile.acr
+
+# Stage and commit
+git add Dockerfile.acr
+git commit -m "Update Dockerfile to optimize build cache"
+git push origin main
+
+# GitHub Actions will automatically:
+# 1. Build new Docker image
+# 2. Push to Azure Container Registry
+# 3. Deploy to dev environment
+```
+
+#### Making Changes to Agentgateway Source Code
+
+If you're modifying the **agentgateway submodule source code**:
+
+```bash
+# Navigate to submodule
+cd agentgateway
+
+# Create a feature branch
+git checkout -b feature/my-new-feature
+
+# Make your changes
+vim src/my_file.rs
+
+# Commit to the submodule repository
+git add src/my_file.rs
+git commit -m "Add new feature"
+
+# Push to agentgateway repository
+git push origin feature/my-new-feature
+
+# Create PR in agentgateway repository
+# Once merged to agentgateway/main, update the wrapper:
+
+cd ..  # Back to wrapper repo
+cd agentgateway
+git fetch origin
+git checkout origin/main  # Pull the merged changes
+cd ..
+git add agentgateway
+git commit -m "Update agentgateway submodule with new feature"
+git push origin main  # Triggers deployment with new feature
+```
+
+---
+
+### Understanding Workflow Triggers
+
+The GitHub Actions workflow (`.github/workflows/azure-deploy.yml`) **ONLY** triggers on:
+
+- **Push to `unitone-agentgateway`'s `main` branch** → Deploys to **dev**
+- **Published release in `unitone-agentgateway`** → Deploys to **prod**
+- **Manual workflow dispatch** → Deploy to any environment
+
+**Important**: Pushing changes to the `agentgateway` submodule repository does **NOT** trigger the workflow. You must update the submodule pointer in `unitone-agentgateway` and push to trigger deployment.
+
+---
+
+### Quick Reference: Common Tasks
+
+| Task | Commands |
+|------|----------|
+| Clone with submodules | `git clone --recursive <repo-url>` |
+| Initialize submodules (if not done) | `git submodule update --init --recursive` |
+| Update submodule to latest | `cd agentgateway && git fetch origin && git checkout origin/main && cd .. && git add agentgateway && git commit -m "Update submodule" && git push` |
+| Check submodule status | `git submodule status` |
+| View submodule current commit | `cd agentgateway && git log -1` |
+| Trigger dev deployment | `git push origin main` |
+| Trigger prod deployment | Create and publish a release on GitHub |
+
+---
+
 ## Deployment Workflows
 
 ### 1. CI/CD Pipeline (`.github/workflows/pull_request.yml`)
@@ -108,7 +323,7 @@ Azure Service Principal credentials in JSON format:
 az ad sp create-for-rbac \
   --name "github-actions-agentgateway" \
   --role contributor \
-  --scopes /subscriptions/<SUBSCRIPTION_ID>/resourceGroups/unitone-agw-dev-rg \
+  --scopes /subscriptions/<SUBSCRIPTION_ID>/resourceGroups/mcp-gateway-dev-rg \
   --sdk-auth
 ```
 
@@ -123,23 +338,23 @@ For each environment (dev, staging, prod), configure:
 ## Environment Configuration
 
 ### Dev Environment
-- **Resource Group**: `unitone-agw-dev-rg`
+- **Resource Group**: `mcp-gateway-dev-rg`
 - **ACR**: `unitoneagwdevacr`
-- **Container App**: `unitone-agw-dev-app`
+- **Container App**: `unitone-agentgateway`
 - **Auto-deploy**: On push to `main`
 - **Scaling**: 1-3 replicas
 
 ### Staging Environment (if configured)
-- **Resource Group**: `unitone-agw-staging-rg`
+- **Resource Group**: `mcp-gateway-staging-rg`
 - **ACR**: `unitoneagwstagingacr`
-- **Container App**: `unitone-agw-staging-app`
+- **Container App**: `unitone-agentgateway`
 - **Auto-deploy**: Manual dispatch
 - **Scaling**: 1-5 replicas
 
 ### Prod Environment
-- **Resource Group**: `unitone-agw-prod-rg`
+- **Resource Group**: `mcp-gateway-prod-rg`
 - **ACR**: `unitoneagwprodacr`
-- **Container App**: `unitone-agw-prod-app`
+- **Container App**: `unitone-agentgateway`
 - **Auto-deploy**: On release published
 - **Scaling**: 2-10 replicas
 
@@ -181,7 +396,7 @@ cd deploy
 1. **Trigger**: Developer pushes code to `main` branch
 2. **CI Tests**: `pull_request.yml` runs tests, validation, linting
 3. **Build**: `azure-deploy.yml` builds Docker image with commit SHA tag
-4. **Push to ACR**: Image pushed to `unitoneagwdevacr.azurecr.io`
+4. **Push to ACR**: Image pushed to `agwimages.azurecr.io`
 5. **Deploy**: Bicep template updates Container App with new image
 6. **Verify**: Workflow checks Container App health status
 7. **Notify**: Workflow outputs deployment URLs in GitHub Actions UI
@@ -190,7 +405,7 @@ cd deploy
 
 1. **Trigger**: Maintainer publishes a release (e.g., v1.2.0)
 2. **Build**: `azure-deploy.yml` builds Docker image with semantic version tag
-3. **Push to ACR**: Image pushed to `unitoneagwprodacr.azurecr.io`
+3. **Push to ACR**: Image pushed to `agwimages.azurecr.io`
 4. **Deploy**: Bicep template updates Container App with new image
 5. **Verify**: Workflow checks Container App health status
 6. **Notify**: Workflow outputs deployment URLs
@@ -236,21 +451,21 @@ All image tags created during this development session:
 ```bash
 # List all revisions
 az containerapp revision list \
-  --name unitone-agw-dev-app \
-  --resource-group unitone-agw-dev-rg \
+  --name unitone-agentgateway \
+  --resource-group mcp-gateway-dev-rg \
   --query "[].{Name:name, Active:properties.active, Created:properties.createdTime, Image:properties.template.containers[0].image}" \
   -o table
 
 # Activate specific revision
 az containerapp revision activate \
-  --name unitone-agw-dev-app \
-  --resource-group unitone-agw-dev-rg \
+  --name unitone-agentgateway \
+  --resource-group mcp-gateway-dev-rg \
   --revision <revision-name>
 
 # Deactivate current revision
 az containerapp revision deactivate \
-  --name unitone-agw-dev-app \
-  --resource-group unitone-agw-dev-rg \
+  --name unitone-agentgateway \
+  --resource-group mcp-gateway-dev-rg \
   --revision <bad-revision-name>
 ```
 
@@ -281,21 +496,21 @@ az containerapp revision deactivate \
 ```bash
 # Follow logs
 az containerapp logs show \
-  --name unitone-agw-dev-app \
-  --resource-group unitone-agw-dev-rg \
+  --name unitone-agentgateway \
+  --resource-group mcp-gateway-dev-rg \
   --follow
 
 # Get Container App URL
 az containerapp show \
-  --name unitone-agw-dev-app \
-  --resource-group unitone-agw-dev-rg \
+  --name unitone-agentgateway \
+  --resource-group mcp-gateway-dev-rg \
   --query "properties.configuration.ingress.fqdn" \
   -o tsv
 
 # Check health status
 az containerapp show \
-  --name unitone-agw-dev-app \
-  --resource-group unitone-agw-dev-rg \
+  --name unitone-agentgateway \
+  --resource-group mcp-gateway-dev-rg \
   --query "{ProvisioningState:properties.provisioningState, RunningState:properties.runningStatus}" \
   -o table
 ```
