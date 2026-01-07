@@ -165,36 +165,110 @@ git push origin main
 
 #### Making Changes to Agentgateway Source Code
 
-If you're modifying the **agentgateway submodule source code**:
+If you're modifying the **agentgateway submodule source code**, follow this complete workflow:
+
+##### Step 1: Develop Your Feature in the Submodule
 
 ```bash
-# Navigate to submodule
-cd agentgateway
+# Navigate to submodule directory
+cd ~/unitone-agentgateway/agentgateway
 
 # Create a feature branch
 git checkout -b feature/my-new-feature
 
-# Make your changes
+# Make your changes to the agentgateway code
 vim src/my_file.rs
 
 # Commit to the submodule repository
 git add src/my_file.rs
-git commit -m "Add new feature"
+git commit -m "Add new MCP backend feature"
 
-# Push to agentgateway repository
+# Push to agentgateway repository (upstream)
 git push origin feature/my-new-feature
+```
 
-# Create PR in agentgateway repository
-# Once merged to agentgateway/main, update the wrapper:
+##### Step 2: Create Pull Request in Agentgateway Repository
 
-cd ..  # Back to wrapper repo
+1. Navigate to the upstream `agentgateway` repository on GitHub
+2. Create a Pull Request from your feature branch to `main`
+3. Get code review and approval
+4. Merge the PR to `agentgateway/main`
+
+##### Step 3: Update Wrapper to Use New Version
+
+**IMPORTANT**: After your PR is merged to `agentgateway/main`, you must update the submodule pointer in the wrapper repository to deploy your changes.
+
+```bash
+# Navigate back to wrapper repository root
+cd ~/unitone-agentgateway
+
+# Navigate into the submodule directory
+cd agentgateway
+
+# Fetch latest changes from upstream agentgateway
+git fetch origin
+
+# Checkout the main branch (which now includes your merged feature)
+git checkout origin/main
+# This puts the submodule in "detached HEAD" state, which is expected
+
+# Return to wrapper repository root
+cd ..
+
+# Git will show the submodule as modified (the pointer changed)
+git status
+# Output: modified:   agentgateway (new commits)
+
+# Stage the submodule update
+git add agentgateway
+
+# Commit the submodule pointer update
+git commit -m "Update agentgateway submodule with new MCP backend feature
+
+- Includes feature X from agentgateway PR #123
+- Updates submodule to commit abc1234"
+
+# Push to unitone-agentgateway main branch
+git push origin main
+# This triggers GitHub Actions workflow → builds → deploys to dev
+```
+
+##### Step 4: Verify Deployment
+
+Wait 3-5 minutes for the GitHub Actions workflow to complete, then verify:
+
+```bash
+# Check workflow status
+# Visit: https://github.com/UnitOneAI/unitone-agentgateway/actions
+
+# Or verify deployment directly
+curl https://unitone-agentgateway.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io/health
+```
+
+**Complete Example Workflow:**
+
+```bash
+# 1. Develop in submodule
+cd ~/unitone-agentgateway/agentgateway
+git checkout -b feature/add-slack-backend
+# ... make changes ...
+git commit -m "Add Slack MCP backend"
+git push origin feature/add-slack-backend
+
+# 2. Create PR in agentgateway repo, get it reviewed and merged
+
+# 3. Update wrapper after merge
+cd ~/unitone-agentgateway
 cd agentgateway
 git fetch origin
-git checkout origin/main  # Pull the merged changes
+git checkout origin/main  # Now includes your Slack backend
 cd ..
 git add agentgateway
-git commit -m "Update agentgateway submodule with new feature"
-git push origin main  # Triggers deployment with new feature
+git commit -m "Update agentgateway submodule with Slack backend"
+git push origin main  # Triggers deployment
+
+# 4. Monitor deployment
+# Visit: https://github.com/UnitOneAI/unitone-agentgateway/actions
 ```
 
 ---
