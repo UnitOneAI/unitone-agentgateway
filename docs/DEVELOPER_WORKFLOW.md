@@ -111,22 +111,25 @@ open http://localhost:19000/ui
 - Good for rapid development/testing
 - UI changes require rebuild
 
-### Option 3: UI Development Only (Fastest)
+### Option 3: UI Development Only (Limited - No Backend)
 
 ```bash
-# For UI-only changes (hot reload!)
+# For UI-only visual/styling changes (hot reload)
 cd agentgateway/ui
 npm install
 npm run dev
 
-# Access development UI
-open http://localhost:3000/ui
+# Access development UI (standalone, no backend APIs)
+open http://localhost:3000
 ```
 
 **What this does:**
 - Instant hot reload on UI changes
-- Perfect for UI/styling work
-- No backend functionality (static mode)
+- Good for visual/styling work ONLY
+- ⚠️ **No backend functionality** - API calls won't work
+- ⚠️ **Must rebuild Rust binary** to see changes in production mode
+
+**Important:** The UI is **embedded in the Rust binary at compile time**. The `npm run dev` server is ONLY for quick visual iteration. To test with actual backend functionality, you MUST rebuild the Rust binary (Option 2) after UI changes.
 
 ---
 
