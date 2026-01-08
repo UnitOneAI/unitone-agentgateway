@@ -1,8 +1,27 @@
+# Azure Container App Configuration
+# Exposes both UI and MCP on port 8080
 binds:
-- port: 3000
+- port: 8080
   listeners:
   - routes:
-    - name: pii-test-server
+    # Admin UI route (must come before MCP routes)
+    - name: ui-route
+      matches:
+      - path:
+          pathPrefix: /ui
+      backends:
+      - host: 127.0.0.1:15000
+
+    # Admin API route (for config management)
+    - name: admin-api-route
+      matches:
+      - path:
+          pathPrefix: /config
+      backends:
+      - host: 127.0.0.1:15000
+
+    # MCP routes
+    - name: mcp-route
       policies:
         cors:
           allowOrigins:
@@ -20,6 +39,13 @@ binds:
       backends:
       - mcp:
           targets:
+          # Example stdio MCP server
+          - name: echo
+            stdio:
+              cmd: echo
+              args: ["MCP Available"]
+
+          # PII Test Server (Azure Container App)
           - name: pii-test-server
             sse:
               url: https://mcp-pii-test-server.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io/mcp
