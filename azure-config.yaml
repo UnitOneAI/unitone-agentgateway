@@ -1,0 +1,25 @@
+binds:
+- port: 3000
+  listeners:
+  - routes:
+    - name: pii-test-server
+      policies:
+        cors:
+          allowOrigins:
+            - "*"
+          allowHeaders:
+            - mcp-protocol-version
+            - content-type
+            - cache-control
+            - accept
+          allowMethods:
+            - GET
+            - POST
+            - OPTIONS
+          allowCredentials: true
+      backends:
+      - mcp:
+          targets:
+          - name: pii-test-server
+            sse:
+              url: https://mcp-pii-test-server.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io/mcp
