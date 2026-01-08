@@ -4,7 +4,7 @@ FROM docker.io/library/node:23.11.0-bookworm AS node
 
 WORKDIR /app
 
-COPY ui .
+COPY agentgateway/ui .
 
 RUN npm install
 
@@ -64,13 +64,13 @@ RUN mkdir /build && \
 
 WORKDIR /app
 
-COPY Makefile Cargo.toml Cargo.lock ./
-COPY .cargo ./.cargo
-COPY cargo-docker.config.toml ./
+COPY agentgateway/Makefile agentgateway/Cargo.toml agentgateway/Cargo.lock ./
+COPY agentgateway/.cargo ./.cargo
+COPY agentgateway/cargo-docker.config.toml ./
 RUN cat cargo-docker.config.toml >> .cargo/config.toml
 
-COPY crates ./crates
-COPY common ./common
+COPY agentgateway/crates ./crates
+COPY agentgateway/common ./common
 COPY --from=node /app/out ./ui/out
 
 ENV CC=clang
