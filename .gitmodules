@@ -1,3 +1,4 @@
 [submodule "agentgateway"]
 	path = agentgateway
 	url = ../agentgateway
+	branch = feature/mcp-security-guards

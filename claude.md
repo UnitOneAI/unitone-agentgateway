@@ -152,9 +152,15 @@ UnitOne-branded deployment wrapper for the open source agentgateway project. Pro
 
 ## Sync Strategy with Upstream
 
+### Current Branch
+**Active Branch**: `feature/mcp-security-guards`
+- Contains MCP security enhancements
+- Includes UnitOne branding already applied
+- Tracked in `.gitmodules` for automatic updates
+
 ### Regular Updates
 1. Check upstream for new releases
-2. Update submodule to latest stable tag
+2. Update submodule to latest from feature branch
 3. Test compatibility with UnitOne customizations
 4. Deploy to dev environment
 5. Validate functionality

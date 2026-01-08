@@ -118,7 +118,7 @@ cd agentgateway
 
 # Fetch latest changes
 git fetch origin
-git checkout origin/main  # Or specific version tag
+git checkout origin/feature/mcp-security-guards  # Using feature branch with MCP security
 
 # Return to wrapper repo and commit update
 cd ..
