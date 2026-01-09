@@ -47,5 +47,5 @@ binds:
 
           # PII Test Server (Azure Container App)
           - name: pii-test-server
-            sse:
-              url: https://mcp-pii-test-server.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io/mcp
+            mcp:
+              host: https://mcp-pii-test-server.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io/mcp
