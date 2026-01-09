@@ -45,9 +45,9 @@ check-terraform-dir:
 	fi
 
 # Default gateway URL
-GATEWAY_URL_dev := https://unitone-agentgateway.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io
-GATEWAY_URL_staging := https://unitone-agentgateway-staging.azurecontainerapps.io
-GATEWAY_URL_prod := https://unitone-agentgateway-prod.azurecontainerapps.io
+GATEWAY_URL_dev := https://unitone-agw-dev-app.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io
+GATEWAY_URL_staging := https://unitone-agw-staging-app.icyisland-535dd8c7.eastus2.azurecontainerapps.io
+GATEWAY_URL_prod := https://unitone-agw-prod-app.calmfield-9aeb3d35.eastus2.azurecontainerapps.io
 
 # Resource group names
 RG_dev := mcp-gateway-dev-rg
@@ -55,9 +55,9 @@ RG_staging := mcp-gateway-staging-rg
 RG_prod := mcp-gateway-prod-rg
 
 # Container app names
-APP_dev := unitone-agentgateway
-APP_staging := unitone-agentgateway
-APP_prod := unitone-agentgateway
+APP_dev := unitone-agw-dev-app
+APP_staging := unitone-agw-staging-app
+APP_prod := unitone-agw-prod-app
 
 help: ## Show this help message
 	@echo "UnitOne AgentGateway - Available Commands:"
