@@ -155,7 +155,7 @@ make clean          # Clean build artifacts
 
 - **Full workflow**: See [DEVELOPER_WORKFLOW.md](docs/DEVELOPER_WORKFLOW.md)
 - **Environment details**: See [ENVIRONMENTS.md](ENVIRONMENTS.md)
-- **Issues**: Ask in #agentgateway-dev channel
+- **Issues**: Create a GitHub issue or contact the team
 
 ---
 
