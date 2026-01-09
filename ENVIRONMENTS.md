@@ -108,27 +108,74 @@ az containerapp logs show --name unitone-agw-staging-app --resource-group mcp-ga
 az containerapp logs show --name unitone-agw-prod-app --resource-group mcp-gateway-prod-rg --follow
 ```
 
-### Deploy New Image
+### Manual ACR Build & Deploy (Staging/Production)
 
+**IMPORTANT**: Staging and Production use manual ACR builds. Here's how to deploy:
+
+#### Step 1: Navigate to Wrapper Repo
 ```bash
-# Build for specific environment
-cd /Users/surindersingh/source_code/unitone-agentgateway
-
-# Dev
-az acr build --registry unitoneagwdevacr --image unitone-agentgateway:latest --file Dockerfile.acr .
-
-# Staging
-az acr build --registry unitoneagwstagingacr --image unitone-agentgateway:latest --file Dockerfile.acr .
-
-# Production
-az acr build --registry unitoneagwprodacr --image unitone-agentgateway:latest --file Dockerfile.acr .
+cd unitone-agentgateway  # Your local clone
 ```
+
+#### Step 2: Ensure Latest Code
+```bash
+# Make sure you have the latest code
+git pull origin main
+
+# Update submodule
+git submodule update --init --recursive
+```
+
+#### Step 3: Build & Push to ACR
+```bash
+# Login to Azure (if not already logged in)
+az login
+
+# Build and push to Staging
+az acr build \
+  --registry unitoneagwstagingacr \
+  --image unitone-agentgateway:latest \
+  --file Dockerfile.acr \
+  --platform linux/amd64 \
+  .
+
+# OR Build and push to Production
+az acr build \
+  --registry unitoneagwprodacr \
+  --image unitone-agentgateway:latest \
+  --file Dockerfile.acr \
+  --platform linux/amd64 \
+  .
+```
+
+**What this does:**
+1. Sends your source code to Azure Container Registry
+2. ACR builds the Docker image using Dockerfile.acr
+3. Tags it as `latest` and pushes to registry
+4. Container App automatically pulls new image and restarts
+
+#### Step 4: Monitor Deployment
+```bash
+# For Staging
+az acr task list-runs --registry unitoneagwstagingacr --top 3 --output table
+
+# For Production
+az acr task list-runs --registry unitoneagwprodacr --top 3 --output table
+
+# Watch logs
+make logs-staging  # or make logs-prod
+```
+
+Build typically takes ~25 minutes. The Container App will automatically restart with the new image once the build completes.
+
+#### Dev Environment (Auto-Deploy)
+Dev environment auto-deploys when you push to `main` branch - no manual ACR build needed!
 
 ### Update Infrastructure
 
 ```bash
-# Navigate to environment directory
-cd /Users/surindersingh/source_code/terraform/environments/{dev|staging|prod}/agentgateway
+# Navigate to environment directory (adjust path to your terraform repo location)
+cd ../terraform/environments/{dev|staging|prod}/agentgateway
 
 # Plan changes
 terraform plan

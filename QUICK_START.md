@@ -80,7 +80,7 @@ git push origin feature/my-feature
 # Target: feature/mcp-security-guards branch
 
 # After PR is merged, update wrapper repo
-cd /Users/surindersingh/source_code/unitone-agentgateway
+cd ..  # Back to wrapper repo root
 cd agentgateway
 git checkout feature/mcp-security-guards
 git pull origin feature/mcp-security-guards
