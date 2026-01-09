@@ -90,6 +90,7 @@ build-ui: ## Build only the UI component
 	@echo "Building UI with UnitOne branding..."
 	@echo "Applying UnitOne customizations..."
 	@cp -r ui-customizations/public agentgateway/ui/ 2>/dev/null || true
+	@cp -r ui-customizations/src agentgateway/ui/ 2>/dev/null || true
 	@cp ui-customizations/theme.config.ts agentgateway/ui/ 2>/dev/null || true
 	cd agentgateway/ui && npm install && npm run build
 
