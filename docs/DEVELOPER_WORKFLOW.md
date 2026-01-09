@@ -650,7 +650,7 @@ curl https://unitone-agentgateway.../health
 ## Getting Help
 
 1. **Documentation**: Start with [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md)
-2. **Team Chat**: Ask in #agentgateway-dev channel
+2. **Team**: Create a GitHub issue or contact the team
 3. **Issues**: Create issue in GitHub with `question` label
 4. **Escalate**: Contact DevOps team for infrastructure issues
 
