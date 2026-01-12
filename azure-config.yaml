@@ -1,5 +1,6 @@
 # Azure Container App Configuration
 # Exposes both UI and MCP on port 8080
+adminAddr: "127.0.0.1:15000"
 binds:
 - port: 8080
   listeners:
@@ -38,6 +39,25 @@ binds:
           allowCredentials: true
       backends:
       - mcp:
+          # Security guards configuration
+          securityGuards:
+            # Tool Poisoning Detection Guard
+            - id: tool-poisoning-detector
+              enabled: true
+              priority: 100
+              failure_mode: fail_closed
+              timeout_ms: 50
+              runs_on:
+                - response
+              type: tool_poisoning
+              strict_mode: true
+              custom_patterns:
+                - "(?i)SYSTEM:\\s*override"
+              scan_fields:
+                - name
+                - description
+              alert_threshold: 1
+
           targets:
           # Example stdio MCP server
           - name: echo
