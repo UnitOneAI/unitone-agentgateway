@@ -3,32 +3,121 @@
 ## Purpose
 UnitOne-branded deployment wrapper for the open source agentgateway project. Provides UnitOne-specific configurations, branding, deployment automation, and Azure-optimized infrastructure while maintaining clear separation from the upstream agentgateway codebase.
 
-## Current Sprint (Jan 12-19, 2026)
+## Project Vision & Strategic Direction
 
-### Active Work Items
-- **Dual-Mode Build System** (Surinder)
-  - ACR Task automation for production deployments (ENABLED)
-  - Local build script for development (build-and-push.sh)
-  - Documentation updates for when to use each approach
+### Long-term Goals (2026)
+**Vision**: Production-grade UnitOne-branded deployment of AgentGateway with enterprise features while maintaining clean upstream synchronization.
 
-- **Security Guard Configuration** (Alexey via upstream)
-  - Move guard config from baked-in image to runtime dashboard configuration
-  - Enable/disable guards per MCP target dynamically
+**Key Objectives**:
+- Zero-friction deployment: Push to main = production deployment in <10 minutes
+- Developer-friendly: Local builds for rapid iteration and testing
+- Enterprise ready: UnitOne branding, Azure AD authentication, compliance features
+- Upstream compatibility: Clean git submodule, easy to sync with open source updates
 
-### Completed This Sprint
-- ✅ Local build infrastructure (build-and-push.sh, LOCAL_BUILD_DEPLOYMENT.md)
-- ✅ Re-enabled ACR Task automation for auto-deploy on main branch push
-- ✅ Dual-mode documentation (both automated and manual builds)
+### Current Phase: **Deployment Automation** (Q1 2026)
+**Goal**: Dual-mode build system supporting both production automation and development flexibility
+**Success Criteria**:
+- ACR Task automation enabled and stable
+- Local build path documented and tested
+- Team can deploy to Azure without manual `az` commands
 
-### Sprint Goals
-- Maintain both deployment paths: automated (ACR Task) and manual (local builds)
-- Support AgentGateway security features as they're developed in upstream fork
-- Keep wrapper clean and focused on deployment/branding
+## Recent Significant Changes
 
-### Build Strategy
-- **Production**: Push to main → ACR Task auto-build → Auto-deploy to Container App
-- **Development**: Local build → Test → Push when ready
-- **Configuration**: GitHub PAT enabled for ACR Task, terraform.tfvars controls automation
+### Architecture: Dual-Mode Build System (Jan 2026)
+**What Changed**: Implemented parallel build paths for different use cases
+- **Production Path**: ACR Task auto-builds on `main` branch push → Container App auto-deployment
+- **Development Path**: Local `build-and-push.sh` script for feature branches and testing
+
+**Why This Matters**:
+- **Before**: Single manual build path via `az acr build` - slow iteration, blocked on infrastructure team
+- **After**: Developers iterate locally; production deploys automatically; no manual steps
+
+**Technical Implementation**:
+- `build-and-push.sh`: 471-line script supporting multi-platform builds, custom tags, git versioning
+- `LOCAL_BUILD_DEPLOYMENT.md`: Complete guide on when to use each build mode
+- ACR Task configured in terraform repository (`modules/azure/agentgateway/ci_cd.tf`)
+- GitHub PAT stored in terraform.tfvars (not committed) for ACR Task authentication
+
+**Trade-offs**:
+- ACR Task workflow runs continuously (minimal cost, ~$0.10/build)
+- Local builds require Azure CLI authentication and ACR access
+- Must sync both paths when Dockerfile.acr changes
+
+### Submodule Strategy: Clean Upstream Separation (Jan 2026)
+**Maintained Invariant**: `agentgateway/` directory remains a clean git submodule
+- Points to UnitOne fork: `git@github.com:UnitOneAI/agentgateway.git`
+- Tracks `feature/mcp-security-guards` branch for security enhancements
+- Zero modifications to core agentgateway code in this wrapper repository
+
+**Why This Matters**:
+- Easy to pull upstream updates (both from official agentgateway and UnitOne fork)
+- Clear separation between deployment/branding (this repo) and core features (submodule)
+- Can switch between branches or forks by updating `.gitmodules`
+
+## Current Focus Areas (Jan 12-19, 2026)
+
+### Theme 1: Build System Stability
+**Goal**: Validate dual-mode builds work reliably for entire team
+**Why Now**: Recently enabled ACR Task automation; need to ensure it doesn't break workflows
+**Impact**:
+- Developers can use either path based on their needs
+- No confusion about which build mode to use when
+- Documentation prevents common mistakes
+
+**Success Metrics**:
+- Both Alexey and Surinder can build/deploy independently
+- No failed ACR Task builds on main branch
+- Local builds work on both arm64 (Mac) and amd64 (Linux)
+
+### Theme 2: Upstream Security Feature Integration
+**Goal**: Support security guard features as they land in agentgateway submodule
+**Why Now**: Alexey developing MCP security guards in fork; this wrapper must deploy them
+**Impact**:
+- Security features automatically available in Azure deployment
+- No lag between feature development and production availability
+- Runtime guard configuration (when ready) flows through this deployment
+
+**Technical Coordination**:
+- Submodule updates pull latest security guard code
+- Dockerfile.acr includes guard dependencies
+- Azure deployment config will support runtime guard configuration API
+
+### Theme 3: Enterprise Polish
+**Goal**: UnitOne branding and Azure AD integration fully functional
+**Why Now**: Moving from MVP to customer-facing deployment
+**Impact**:
+- Professional appearance for demos and pilot customers
+- Secure authentication via Azure AD (no API key management)
+- Compliance with UnitOne security standards
+
+**Known Issues**:
+- Google OAuth not showing in Easy Auth login screen (infrastructure team investigating)
+- Microsoft OAuth working correctly
+
+## Evolution Notes
+
+### Deployment Evolution (2025-2026)
+**Phase 1 (Late 2025)**: Manual deployment
+- `az acr build` manually run for each deployment
+- Manual `az containerapp update` to deploy new images
+- 15-20 minute manual process per deployment
+
+**Phase 2 (Early Jan 2026)**: Local build script
+- Created `build-and-push.sh` for developer self-service
+- Still required manual steps but more streamlined
+- Development velocity improved but production still manual
+
+**Phase 3 (Mid Jan 2026)**: Dual-mode automation
+- ACR Task enabled for production automation
+- Local builds preserved for development
+- Push to main = automatic production deployment
+- Team can choose appropriate path for their context
+
+### Wrapper Pattern Success
+**Validation**: Clean separation between generic (submodule) and company-specific (wrapper) code
+- UnitOne customizations: Branding, deployment scripts, Azure configuration
+- Core features: Developed in submodule, automatically inherited
+- Pattern scales: Could apply same wrapper approach to other open source tools
 
 ## Core Functionality
 - **Git Submodule Pattern**: Clean separation between generic and company-specific code
