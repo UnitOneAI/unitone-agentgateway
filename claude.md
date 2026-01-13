@@ -3,6 +3,33 @@
 ## Purpose
 UnitOne-branded deployment wrapper for the open source agentgateway project. Provides UnitOne-specific configurations, branding, deployment automation, and Azure-optimized infrastructure while maintaining clear separation from the upstream agentgateway codebase.
 
+## Current Sprint (Jan 12-19, 2026)
+
+### Active Work Items
+- **Dual-Mode Build System** (Surinder)
+  - ACR Task automation for production deployments (ENABLED)
+  - Local build script for development (build-and-push.sh)
+  - Documentation updates for when to use each approach
+
+- **Security Guard Configuration** (Alexey via upstream)
+  - Move guard config from baked-in image to runtime dashboard configuration
+  - Enable/disable guards per MCP target dynamically
+
+### Completed This Sprint
+- ✅ Local build infrastructure (build-and-push.sh, LOCAL_BUILD_DEPLOYMENT.md)
+- ✅ Re-enabled ACR Task automation for auto-deploy on main branch push
+- ✅ Dual-mode documentation (both automated and manual builds)
+
+### Sprint Goals
+- Maintain both deployment paths: automated (ACR Task) and manual (local builds)
+- Support AgentGateway security features as they're developed in upstream fork
+- Keep wrapper clean and focused on deployment/branding
+
+### Build Strategy
+- **Production**: Push to main → ACR Task auto-build → Auto-deploy to Container App
+- **Development**: Local build → Test → Push when ready
+- **Configuration**: GitHub PAT enabled for ACR Task, terraform.tfvars controls automation
+
 ## Core Functionality
 - **Git Submodule Pattern**: Clean separation between generic and company-specific code
 - **Azure Deployment**: Automated CI/CD to Azure Container Apps
