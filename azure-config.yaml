@@ -1,6 +1,6 @@
 # Azure Container App Configuration
 # Exposes both UI and MCP on port 8080
-adminAddr: "127.0.0.1:15000"
+# Note: admin server defaults to 127.0.0.1:15000 (no need to specify)
 binds:
 - port: 8080
   listeners:
