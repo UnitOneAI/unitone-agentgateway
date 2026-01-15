@@ -92,43 +92,21 @@ echo ""
 echo -e "${YELLOW}Step 2: Running layered build on VM...${NC}"
 BUILD_START=$(date +%s)
 
-# Get current commit and branch
-COMMIT_HASH=$(git rev-parse HEAD)
-COMMIT_HASH_SHORT=$(git rev-parse --short HEAD)
+# Get current commit
+COMMIT_HASH=$(git rev-parse --short HEAD)
 
-# Get current git remote URL and convert SSH to HTTPS
-REMOTE_URL=$(git config --get remote.origin.url)
-# Convert SSH URL to HTTPS if needed
-if [[ "$REMOTE_URL" =~ ^git@github\.com:(.+)$ ]]; then
-    REMOTE_URL="https://github.com/${BASH_REMATCH[1]}"
-    echo "  Converted SSH URL to HTTPS: $REMOTE_URL"
-fi
+# Sync code to VM using rsync (includes .git for proper submodule handling)
+echo "  Syncing code to VM (including git metadata)..."
+ssh -o StrictHostKeyChecking=no azureuser@$VM_IP 'mkdir -p /home/azureuser/workspace'
 
-# Prepare code on VM using git clone
-echo "  Preparing code on VM via git clone..."
-ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=120 azureuser@$VM_IP bash <<EOF
-set -euo pipefail
+# Sync entire directory including .git to preserve submodule state
+rsync -az --delete \
+  --exclude 'target' \
+  --exclude 'node_modules' \
+  --exclude '.dockerignore' \
+  ./ azureuser@$VM_IP:/home/azureuser/workspace/unitone-agentgateway/
 
-# Remove old workspace if it exists
-rm -rf /home/azureuser/workspace/unitone-agentgateway
-
-# Clone the repository with submodules
-echo "Cloning repository..."
-git clone --recurse-submodules $REMOTE_URL /home/azureuser/workspace/unitone-agentgateway
-
-# Navigate to workspace
-cd /home/azureuser/workspace/unitone-agentgateway
-
-# Checkout the specific commit we're building
-echo "Checking out commit $COMMIT_HASH..."
-git checkout $COMMIT_HASH
-
-# Update submodules to match the commit
-echo "Updating submodules..."
-git submodule update --init --recursive
-
-echo "✓ Code prepared successfully"
-EOF
+echo "✓ Code synced successfully"
 
 # Create the build script with ENV substituted
 cat > /tmp/remote-build.sh <<'BUILD_SCRIPT'
