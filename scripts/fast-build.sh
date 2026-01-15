@@ -153,7 +153,7 @@ BUILD_SCRIPT
 
 # Substitute ENV_VALUE and COMMIT_HASH_VALUE in the script
 sed -i '' "s/\${ENV_VALUE}/$ENV/g" /tmp/remote-build.sh
-sed -i '' "s/\${COMMIT_HASH_VALUE}/$COMMIT_HASH_SHORT/g" /tmp/remote-build.sh
+sed -i '' "s/\${COMMIT_HASH_VALUE}/$COMMIT_HASH/g" /tmp/remote-build.sh
 
 # Run build script on VM
 echo "  Uploading build script..."
