@@ -96,8 +96,13 @@ BUILD_START=$(date +%s)
 COMMIT_HASH=$(git rev-parse HEAD)
 COMMIT_HASH_SHORT=$(git rev-parse --short HEAD)
 
-# Get current git remote URL
+# Get current git remote URL and convert SSH to HTTPS
 REMOTE_URL=$(git config --get remote.origin.url)
+# Convert SSH URL to HTTPS if needed
+if [[ "$REMOTE_URL" =~ ^git@github\.com:(.+)$ ]]; then
+    REMOTE_URL="https://github.com/${BASH_REMATCH[1]}"
+    echo "  Converted SSH URL to HTTPS: $REMOTE_URL"
+fi
 
 # Prepare code on VM using git clone
 echo "  Preparing code on VM via git clone..."
