@@ -27,7 +27,7 @@ binds:
       - path:
           pathPrefix: /healthz/ready
       backends:
-      - host: 127.0.0.1:15000
+      - host: 127.0.0.1:15021
 
     # MCP routes
     - name: mcp-route
