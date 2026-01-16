@@ -89,22 +89,29 @@ VM_START_TIME=$(($(date +%s) - START_TIME))
 echo ""
 
 # Step 2: Run build on VM
-echo -e "${YELLOW}Step 2: Running layered build on VM...${NC}"
+echo -e "${YELLOW}Step 2: Running Docker build on VM...${NC}"
 BUILD_START=$(date +%s)
 
 # Get current commit
 COMMIT_HASH=$(git rev-parse --short HEAD)
 
-# Sync code to VM using rsync (includes .git for proper submodule handling)
-echo "  Syncing code to VM (including git metadata)..."
-ssh -o StrictHostKeyChecking=no azureuser@$VM_IP 'mkdir -p /home/azureuser/workspace'
+# Ensure git submodules are checked out locally before syncing
+echo "  Ensuring git submodules are checked out..."
+git submodule update --init --recursive
 
-# Sync entire directory including .git to preserve submodule state
-rsync -az --delete \
-  --exclude 'target' \
-  --exclude 'node_modules' \
-  --exclude '.dockerignore' \
-  ./ azureuser@$VM_IP:/home/azureuser/workspace/unitone-agentgateway/
+# Sync code to VM using tar+ssh (fastest and most reliable method)
+echo "  Syncing code to VM using tar+ssh..."
+ssh -o StrictHostKeyChecking=no azureuser@$VM_IP 'mkdir -p /home/azureuser/workspace/unitone-agentgateway'
+
+# Create tar archive locally and extract on VM in one pipeline
+# This preserves all directory structures and is faster than rsync
+tar czf - \
+  --exclude='target' \
+  --exclude='node_modules' \
+  --exclude='.git' \
+  --exclude='.dockerignore' \
+  . | ssh -o StrictHostKeyChecking=no azureuser@$VM_IP \
+  "cd /home/azureuser/workspace/unitone-agentgateway && tar xzf -"
 
 echo "✓ Code synced successfully"
 
@@ -130,9 +137,9 @@ echo "Setting subscription to 398d3082-298e-4633-9a4a-816c025965ee..."
 az account set --subscription 398d3082-298e-4633-9a4a-816c025965ee
 
 ACR_NAME="unitoneagw${ENV_VALUE}acr"
+REGISTRY="${ACR_NAME}.azurecr.io"
 
 # Now login to ACR using the authenticated managed identity
-# This requires the VM's managed identity to have AcrPush role on the ACR
 echo "Logging in to ACR: $ACR_NAME..."
 az acr login --name $ACR_NAME || {
     echo "Failed to login to ACR"
@@ -143,17 +150,33 @@ az acr login --name $ACR_NAME || {
 
 echo "✓ Successfully authenticated to ACR: $ACR_NAME"
 
-echo "=== Running layered build ==="
-# Run the layered build script with COMMIT_HASH environment variable
-export COMMIT_HASH="${COMMIT_HASH_VALUE}"
-./scripts/build-layered.sh ${ENV_VALUE}
+echo "=== Building Docker image using Dockerfile.acr ==="
+# Build using Dockerfile.acr (not the layered approach which doesn't work with submodules)
+COMMIT_HASH="${COMMIT_HASH_VALUE}"
+docker build \
+  -f Dockerfile.acr \
+  -t $REGISTRY/unitone-agentgateway:$COMMIT_HASH \
+  -t $REGISTRY/unitone-agentgateway:latest \
+  --platform linux/amd64 \
+  .
 
-echo "=== Build complete ==="
+echo "=== Pushing images to ACR ==="
+docker push $REGISTRY/unitone-agentgateway:$COMMIT_HASH
+docker push $REGISTRY/unitone-agentgateway:latest
+
+echo "=== Build and push complete ==="
 BUILD_SCRIPT
 
-# Substitute ENV_VALUE and COMMIT_HASH_VALUE in the script
-sed -i '' "s/\${ENV_VALUE}/$ENV/g" /tmp/remote-build.sh
-sed -i '' "s/\${COMMIT_HASH_VALUE}/$COMMIT_HASH/g" /tmp/remote-build.sh
+# Substitute ENV_VALUE and COMMIT_HASH_VALUE in the script (portable for macOS and Linux)
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  # macOS requires empty string after -i
+  sed -i '' "s/\${ENV_VALUE}/$ENV/g" /tmp/remote-build.sh
+  sed -i '' "s/\${COMMIT_HASH_VALUE}/$COMMIT_HASH/g" /tmp/remote-build.sh
+else
+  # Linux doesn't use empty string
+  sed -i "s/\${ENV_VALUE}/$ENV/g" /tmp/remote-build.sh
+  sed -i "s/\${COMMIT_HASH_VALUE}/$COMMIT_HASH/g" /tmp/remote-build.sh
+fi
 
 # Run build script on VM
 echo "  Uploading build script..."

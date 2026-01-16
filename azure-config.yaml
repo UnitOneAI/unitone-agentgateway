@@ -21,8 +21,21 @@ binds:
       backends:
       - host: 127.0.0.1:15000
 
+    # Health check route (must come before MCP routes)
+    - name: health-route
+      matches:
+      - path:
+          pathPrefix: /health
+      backends:
+      - host: 127.0.0.1:15000
+
     # MCP routes
     - name: mcp-route
+      matches:
+      - path:
+          pathPrefix: /mcp
+      - path:
+          pathPrefix: /
       policies:
         cors:
           allowOrigins:
