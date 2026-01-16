@@ -25,7 +25,7 @@ binds:
     - name: health-route
       matches:
       - path:
-          pathPrefix: /health
+          pathPrefix: /healthz/ready
       backends:
       - host: 127.0.0.1:15000
 
