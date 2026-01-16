@@ -34,8 +34,6 @@ binds:
       matches:
       - path:
           pathPrefix: /mcp
-      - path:
-          pathPrefix: /
       policies:
         cors:
           allowOrigins:
