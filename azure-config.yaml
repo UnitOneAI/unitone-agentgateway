@@ -70,13 +70,7 @@ binds:
               alert_threshold: 1
 
           targets:
-          # Example stdio MCP server
-          - name: echo
-            stdio:
-              cmd: echo
-              args: ["MCP Available"]
-
-          # PII Test Server (Azure Container App)
-          - name: pii-test-server
+          # Tool Poisoning Test Server (Azure Container App - Internal)
+          - name: tool-poisoning-test
             mcp:
-              host: https://mcp-pii-test-server.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io/mcp
+              host: http://tool-poisoning-test-dev.internal.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io/mcp
