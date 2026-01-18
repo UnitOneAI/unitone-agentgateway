@@ -8,6 +8,8 @@ COPY agentgateway/ui .
 
 RUN npm install
 
+# Explicitly set NODE_ENV=production to ensure API_URL uses relative paths
+ENV NODE_ENV=production
 RUN npm run build
 
 FROM docker.io/library/rust:1.91.1-trixie AS arm64-sysroot
