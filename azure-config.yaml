@@ -4,7 +4,9 @@
 binds:
 - port: 8080
   listeners:
-  - routes:
+  - name: http-listener
+    protocol: HTTP
+    routes:
     # Admin UI route (must come before MCP routes)
     - name: ui-route
       matches:
