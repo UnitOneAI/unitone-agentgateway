@@ -14,8 +14,13 @@ WORKDIR /app
 COPY agentgateway/ui/package*.json ./
 RUN npm install
 
-# Copy UI source and build
+# Copy UI source
 COPY agentgateway/ui ./
+
+# Apply UnitOne UI customizations (overrides default UI files)
+COPY ui-customizations/ ./
+
+# Build UI
 RUN npm run build
 
 # ============================================================================

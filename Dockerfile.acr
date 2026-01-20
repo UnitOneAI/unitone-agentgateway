@@ -4,7 +4,11 @@ FROM docker.io/library/node:23.11.0-bookworm AS node
 
 WORKDIR /app
 
+# Copy base UI from submodule
 COPY agentgateway/ui .
+
+# Apply UnitOne UI customizations (overrides default UI files)
+COPY ui-customizations/ ./
 
 RUN npm install
 
