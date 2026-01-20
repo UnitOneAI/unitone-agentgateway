@@ -152,8 +152,10 @@ echo "✓ Successfully authenticated to ACR: $ACR_NAME"
 
 echo "=== Building Docker image using Dockerfile.acr ==="
 # Build using Dockerfile.acr (not the layered approach which doesn't work with submodules)
+# Use --no-cache to ensure fresh build with latest UI files
 COMMIT_HASH="${COMMIT_HASH_VALUE}"
 docker build \
+  --no-cache \
   -f Dockerfile.acr \
   -t $REGISTRY/unitone-agentgateway:$COMMIT_HASH \
   -t $REGISTRY/unitone-agentgateway:latest \
