@@ -10,6 +10,13 @@ COPY agentgateway/ui .
 # Apply UnitOne UI customizations (overrides default UI files)
 COPY ui-customizations/ ./
 
+# Verify playground uses StreamableHTTP (not SSE)
+RUN echo "=== Verifying ui-customizations overlay ===" && \
+    head -6 src/app/playground/page.tsx && \
+    grep -q "StreamableHTTPClientTransport" src/app/playground/page.tsx && \
+    echo "✓ Playground uses StreamableHTTPClientTransport" || \
+    (echo "✗ ERROR: Playground still uses SSE transport!" && exit 1)
+
 RUN npm install
 
 # Explicitly set NODE_ENV=production to ensure API_URL uses relative paths
