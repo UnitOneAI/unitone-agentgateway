@@ -749,6 +749,29 @@ export default function PlaygroundPage() {
     }
   };
 
+  const refreshMcpTools = async () => {
+    if (!mcpState.client) return;
+
+    setUiState((prev) => ({ ...prev, isLoadingCapabilities: true }));
+    try {
+      // Call tools/list through the existing gateway connection
+      // The gateway will re-fetch from all configured MCP targets
+      const listToolsRequest: McpClientRequest = { method: "tools/list", params: {} };
+      const toolsResponse = await mcpState.client.request(
+        listToolsRequest,
+        McpListToolsResultSchema
+      );
+      setMcpState((prev) => ({ ...prev, tools: toolsResponse.tools }));
+      toast.success(`Refreshed tools list (${toolsResponse.tools.length} tools)`);
+    } catch (error: any) {
+      const message =
+        error instanceof McpError ? error.message : error?.message || "Failed to refresh tools";
+      toast.error(message);
+    } finally {
+      setUiState((prev) => ({ ...prev, isLoadingCapabilities: false }));
+    }
+  };
+
   const handleA2aSkillSelect = (skill: AgentSkill) => {
     setA2aState((prev) => ({ ...prev, selectedSkill: skill, response: null, message: "" }));
     setMcpState((prev) => ({ ...prev, response: null }));
@@ -1433,6 +1456,7 @@ export default function PlaygroundPage() {
             selectedA2aSkillId={a2aState.selectedSkill?.id ?? null}
             onMcpToolSelect={handleMcpToolSelect}
             onA2aSkillSelect={handleA2aSkillSelect}
+            onRefreshMcpTools={refreshMcpTools}
           />
 
           <ActionPanel
