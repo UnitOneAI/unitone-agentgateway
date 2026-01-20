@@ -75,4 +75,4 @@ binds:
           # Tool Poisoning Test Server (Azure Container App - Internal)
           - name: tool-poisoning-test
             mcp:
-              host: http://tool-poisoning-test-dev.internal.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io/mcp
+              host: https://tool-poisoning-test-dev.internal.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io

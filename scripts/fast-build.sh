@@ -203,6 +203,39 @@ BUILD_TIME=$(($(date +%s) - BUILD_START))
 echo -e "${GREEN}✓ Build completed in ${BUILD_TIME}s${NC}"
 echo ""
 
+# Step 3: Force Container App to pull latest image
+echo -e "${YELLOW}Step 3: Updating Azure Container App...${NC}"
+UPDATE_START=$(date +%s)
+
+# Map environment to resource group and app name
+case "$ENV" in
+  dev)
+    APP_NAME="unitone-agw-dev-app"
+    APP_RG="mcp-gateway-dev-rg"
+    ;;
+  staging)
+    APP_NAME="unitone-agw-staging-app"
+    APP_RG="mcp-gateway-staging-rg"
+    ;;
+  prod)
+    APP_NAME="unitone-agw-prod-app"
+    APP_RG="mcp-gateway-prod-rg"
+    ;;
+esac
+
+echo "  Triggering container update for $APP_NAME..."
+az containerapp update \
+  --name "$APP_NAME" \
+  --resource-group "$APP_RG" \
+  --output none || {
+    echo -e "${RED}Warning: Container app update failed${NC}"
+    echo "The image was pushed to ACR, but the container app may need manual restart"
+}
+
+UPDATE_TIME=$(($(date +%s) - UPDATE_START))
+echo -e "${GREEN}✓ Container app updated in ${UPDATE_TIME}s${NC}"
+echo ""
+
 # Calculate total time
 TOTAL_TIME=$(($(date +%s) - START_TIME))
 

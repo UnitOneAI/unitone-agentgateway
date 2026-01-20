@@ -24,6 +24,9 @@ RUN npm run build
 FROM ${BASE_IMAGE} AS app-builder
 
 # Copy source code (the only thing that changes frequently)
+# Copy workspace files
+COPY agentgateway/Cargo.toml ./Cargo.toml
+COPY agentgateway/Cargo.lock ./Cargo.lock
 COPY agentgateway/crates ./crates/
 
 # Build application (dependencies already compiled!)

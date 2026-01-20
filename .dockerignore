@@ -1,0 +1,90 @@
+# Rust build artifacts
+agentgateway/target/
+**/target/
+# Exception: Allow pre-built binary for Docker image
+!agentgateway/target/release/agentgateway
+
+# Git directories
+.git/
+**/.git/
+
+# IDE directories
+.vscode/
+.idea/
+**/.vscode/
+**/.idea/
+
+# Temporary files
+*.tmp
+*.log
+**/*.tmp
+**/*.log
+
+# Node modules
+node_modules/
+**/node_modules/
+
+# Next.js build artifacts
+.next/
+**/.next/
+out/
+**/out/
+# Exception: Allow UI build output for Docker image
+!agentgateway/ui/out/
+
+# Test artifacts
+test-results/
+coverage/
+
+# Documentation and README files (not needed in builds)
+*.md
+docs/
+documentation/
+
+# CI/CD configurations
+.github/
+.gitlab-ci.yml
+azure-pipelines.yml
+.circleci/
+
+# Scripts (deploy scripts not needed in image)
+scripts/
+*.sh
+
+# Examples and test code
+examples/
+**/examples/
+tests/
+**/tests/
+
+# Environment files
+.env
+.env.*
+*.env
+
+# macOS files
+.DS_Store
+
+# Build logs
+*.log
+**/*.log
+/tmp/
+
+# Lock files (except Cargo.lock which is needed)
+!Cargo.lock
+!agentgateway/Cargo.lock
+package-lock.json
+
+# Terraform
+terraform/
+*.tf
+*.tfvars
+
+# Docker files (not needed inside container)
+Dockerfile*
+.dockerignore
+
+# Git files
+.gitignore
+.gitattributes
+.gitmodules

@@ -67,7 +67,31 @@ unitone-agentgateway/          ← You work here (wrapper repo)
 
 ## Local Development
 
-### Option 1: Docker Build (Recommended - Matches Production)
+### Option 1: Fast Build for Active Development (4-7 minutes)
+
+**Best for:** Rapid iteration, testing changes quickly before deployment
+
+```bash
+# Build and deploy to dev (4-7 minutes vs 15-25 minutes traditional)
+./scripts/fast-build.sh dev
+
+# Or to staging/prod
+./scripts/fast-build.sh staging
+./scripts/fast-build.sh prod
+```
+
+**What this does:**
+- Starts Azure VM with Docker (1-2 min)
+- Syncs code to VM automatically
+- Builds using layered Docker cache (3-5 min for code changes, 8-10 min first time)
+- Pushes to ACR and deploys
+- VM auto-shuts down after 30 min
+
+**Speed:** 75% faster than traditional builds. See [FAST_BUILD.md](FAST_BUILD.md) for details.
+
+### Option 2: Docker Build (Matches Production)
+
+**Best for:** Testing Docker configuration, full production-like environment
 
 ```bash
 # Build Docker image locally (this takes 10-15 minutes first time)
@@ -273,7 +297,27 @@ docker run -p 19000:19000 test:local
 
 ## Deploying to Dev
 
-**Dev Environment**: Automatic deployment on push to `main`
+### Method 1: Fast Build (Recommended - 4-7 minutes)
+
+**Best for:** Active development, rapid iteration
+
+```bash
+# Build and deploy to dev (4-7 minutes)
+./scripts/fast-build.sh dev
+
+# What happens:
+# - VM starts automatically (1-2 min)
+# - Code syncs to VM
+# - Layered Docker build (3-5 min)
+# - Pushes to ACR and deploys
+# - VM auto-shuts down after 30 min
+```
+
+See [FAST_BUILD.md](FAST_BUILD.md) for complete documentation.
+
+### Method 2: GitHub Actions (Automatic - 15-25 minutes)
+
+**Best for:** Standard workflow, automatic deployment
 
 ```bash
 # 1. Make sure your changes are committed
@@ -286,18 +330,18 @@ git push origin main
 # Go to: https://github.com/UnitOneAI/unitone-agentgateway/actions
 # Watch: "Azure Deployment" workflow
 
-# 4. Verify deployment (after ~5-10 minutes)
+# 4. Verify deployment (after ~15-20 minutes)
 # Check logs
 az containerapp logs show \
-  --name unitone-agentgateway \
+  --name unitone-agw-dev-app \
   --resource-group mcp-gateway-dev-rg \
   --follow
 
 # 5. Test the deployed app
-open https://unitone-agentgateway.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io/ui
+open https://unitone-agw-dev-app.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io/ui
 
 # 6. Health check
-curl https://unitone-agentgateway.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io/health
+curl https://unitone-agw-dev-app.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io/health
 ```
 
 **What Happens Automatically:**

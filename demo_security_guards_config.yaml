@@ -1,0 +1,63 @@
+# Security Guards Demo Configuration
+# This configuration demonstrates MCP security guards in action
+
+binds:
+  - port: 8080
+    listeners:
+      - routes:
+          - backends:
+              - mcp:
+                  # Security guards configuration
+                  securityGuards:
+                    # Tool Poisoning Detection Guard
+                    - id: tool-poisoning-detector
+                      enabled: true
+                      priority: 100
+                      failure_mode: fail_closed
+                      timeout_ms: 50
+                      runs_on:
+                        - response
+                      type: tool_poisoning
+                      strict_mode: true
+                      custom_patterns:
+                        - "(?i)SYSTEM:\\s*override"
+                        - "(?i)ignore\\s+all\\s+previous\\s+instructions"
+                        - "(?i)\\[HIDDEN\\]"
+                        - "(?i)dangerous\\s+instructions"
+                      scan_fields:
+                        - name
+                        - description
+                        - input_schema
+                      alert_threshold: 1
+
+                    # PII Detection Guard
+                    - id: pii-detector
+                      enabled: true
+                      priority: 50
+                      failure_mode: fail_closed
+                      timeout_ms: 100
+                      runs_on:
+                        - response
+                      type: pii_detection
+                      pii_types:
+                        - email_address
+                        - phone_number
+                        - social_security_number
+                        - credit_card_number
+                      confidence_threshold: 0.80
+                      scan_fields:
+                        - description
+                        - input_schema
+                      action: block
+
+                  # MCP server targets
+                  targets:
+                    # Tool Poisoning Test Server (Internal)
+                    - name: tool-poisoning-test
+                      mcp:
+                        host: http://tool-poisoning-test-dev.internal.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io:8000/mcp
+
+                    # PII Test Server (Internal)
+                    - name: pii-test-server
+                      mcp:
+                        host: http://mcp-pii-test-server-dev.internal.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io:8000/mcp

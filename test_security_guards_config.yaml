@@ -1,0 +1,37 @@
+# Security Guards Test Configuration with Public Backend
+# This configuration enables security guards testing with accessible MCP servers
+
+binds:
+  - port: 8080
+    listeners:
+      - routes:
+          - backends:
+              - mcp:
+                  # Security guards configuration
+                  securityGuards:
+                    # PII Detection Guard
+                    - id: pii-detector
+                      enabled: true
+                      priority: 50
+                      failure_mode: fail_closed
+                      timeout_ms: 100
+                      runs_on:
+                        - response
+                      type: pii_detection
+                      pii_types:
+                        - email_address
+                        - phone_number
+                        - social_security_number
+                        - credit_card_number
+                      confidence_threshold: 0.80
+                      scan_fields:
+                        - description
+                        - input_schema
+                      action: block
+
+                  # MCP server targets (using PUBLIC endpoints)
+                  targets:
+                    # PII Test Server (External - Publicly Accessible)
+                    - name: pii-test-server
+                      mcp:
+                        host: https://mcp-pii-test-server.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io/mcp

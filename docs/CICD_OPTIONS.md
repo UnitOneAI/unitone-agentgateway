@@ -4,12 +4,79 @@ This document explains the available CI/CD options for automating builds and dep
 
 ## Overview
 
-There are **two CI/CD approaches** available for UnitOne AgentGateway:
+There are **three build and deployment approaches** available for UnitOne AgentGateway:
 
-1. **GitHub Actions** (Primary - ACTIVE)
-2. **Azure Container Registry (ACR) Tasks** (Alternative - AVAILABLE)
+1. **Fast Build (VM-based)** (Recommended for development - ACTIVE)
+2. **GitHub Actions** (Primary CI/CD - ACTIVE)
+3. **Azure Container Registry (ACR) Tasks** (Alternative - AVAILABLE)
 
-## Current Setup: GitHub Actions (PRIMARY)
+## Option 1: Fast Build - VM-Based (RECOMMENDED FOR DEVELOPMENT)
+
+### Status
+**✅ ACTIVE** - Currently deployed and actively used for development
+
+### Overview
+VM-based fast build system using layered Docker caching for **4-7 minute builds** compared to traditional 15-25 minute builds.
+
+### Location
+- Main script: `./scripts/fast-build.sh`
+- Layered build: `./scripts/build-layered.sh`
+- VM setup: `./scripts/setup-build-machine.sh`
+- Documentation: [FAST_BUILD.md](FAST_BUILD.md)
+
+### How It Works
+```
+Local Machine → Azure VM (Standard_D4s_v3) → Layered Docker Build → ACR → Container Apps
+```
+
+1. Starts build VM automatically (1-2 minutes)
+2. Syncs code via rsync (excludes .git, target/)
+3. Authenticates to ACR using managed identity (automatic)
+4. Builds application layer (3-5 minutes) or base layer (8-10 minutes first time)
+5. Pushes to ACR and deploys
+6. VM auto-shuts down after 30 minutes of inactivity
+
+### Triggers
+```bash
+# Manual trigger - build and deploy
+./scripts/fast-build.sh dev       # Deploy to dev (4-7 min)
+./scripts/fast-build.sh staging   # Deploy to staging
+./scripts/fast-build.sh prod      # Deploy to prod
+```
+
+### Key Features
+- ✅ **75% faster** than traditional ACR builds (4-7 min vs 15-25 min)
+- ✅ **Layered caching**: Dependencies compiled once (Dockerfile.base), reused for all builds
+- ✅ **Automated authentication**: Managed identity, no manual login required
+- ✅ **Multi-environment support**: dev, staging, prod
+- ✅ **Cost-effective**: VM auto-stops, ~$10-20/month typical usage
+- ✅ **Native Linux Docker**: Faster than macOS Docker Desktop
+
+### Advantages
+- **Fastest iteration speed** for active development
+- Layered build strategy: 3-5 min for code changes, 8-10 min first time
+- Native Linux Docker (no macOS virtualization overhead)
+- Automatic VM lifecycle management
+- Cost-effective with auto-shutdown
+
+### When to Use
+- ✅ Active development and rapid iteration
+- ✅ Testing configuration changes quickly
+- ✅ Multiple builds per day
+- ✅ Quick bug fixes and feature development
+
+### Cost
+| State | Cost | Usage |
+|-------|------|-------|
+| **Stopped (deallocated)** | $5/month | Disk storage only |
+| **Running** | $0.19/hour | Active building |
+| **Typical monthly** | $10-20 | Active development |
+
+For complete documentation, see [FAST_BUILD.md](FAST_BUILD.md).
+
+---
+
+## Option 2: GitHub Actions (PRIMARY CI/CD)
 
 ### Status
 **✅ ACTIVE** - Currently deployed and operational
@@ -94,30 +161,43 @@ The following resources are defined but **not currently deployed**:
 
 ## Comparison Table
 
-| Feature | GitHub Actions | ACR Tasks |
-|---------|---------------|-----------|
-| **Status** | ✅ Active | ⚠️ Available (not deployed) |
-| **Trigger** | Push to main | Push to main (via webhook) |
-| **Build Location** | GitHub-hosted runners | Azure ACR |
-| **Deployment** | Via workflow steps | Via webhook |
-| **Multi-environment** | ✅ Yes (dev/staging/prod) | Limited |
-| **Testing/Validation** | ✅ Full support | Limited |
-| **Monitoring** | GitHub Actions UI | Azure portal |
-| **Cost** | Free/generous limits | $0.0001 per build second |
-| **Setup Complexity** | Medium | High |
-| **Portability** | ✅ High | ❌ Azure-specific |
-| **Base Image Updates** | Manual | ✅ Automatic |
+| Feature | Fast Build (VM) | GitHub Actions | ACR Tasks |
+|---------|-----------------|----------------|-----------|
+| **Status** | ✅ Active (dev) | ✅ Active (CI/CD) | ⚠️ Available (not deployed) |
+| **Build Time** | **4-7 min** | 15-25 min | 15-20 min |
+| **First Build** | 8-10 min | 15-25 min | 15-20 min |
+| **Trigger** | Manual command | Push to main | Push to main (via webhook) |
+| **Build Location** | Azure VM (Linux) | GitHub runners | Azure ACR |
+| **Deployment** | Automatic | Via workflow steps | Via webhook |
+| **Multi-environment** | ✅ Yes (dev/staging/prod) | ✅ Yes (dev/staging/prod) | Limited |
+| **Testing/Validation** | Basic | ✅ Full support | Limited |
+| **Monitoring** | Build output | GitHub Actions UI | Azure portal |
+| **Cost** | $10-20/month | Free/generous limits | $0.0001 per build second |
+| **Setup Complexity** | Medium (one-time VM) | Medium | High |
+| **Portability** | ❌ Azure-specific | ✅ High | ❌ Azure-specific |
+| **Cache Strategy** | ✅ Layered (2-stage) | Single layer | Single layer |
+| **Best For** | Development | CI/CD automation | Alternative CI/CD |
+| **Speed Improvement** | **75% faster** | Baseline | Baseline |
 
 ## When to Use Each
 
-### Use GitHub Actions When:
-- ✅ You need multi-environment support (dev/staging/prod)
-- ✅ You want complex workflows (tests, linting, validation)
-- ✅ You prefer centralized CI/CD where code lives
-- ✅ You want easy monitoring via GitHub UI
-- ✅ You need portability (can migrate to other cloud providers)
+### Use Fast Build When:
+- ✅ **Active development** - Building and testing multiple times per day
+- ✅ **Rapid iteration** - Need fast feedback loops (4-7 minutes)
+- ✅ **Testing configuration changes** - Quick deployment to verify changes
+- ✅ **Bug fixes** - Fast turnaround for critical fixes
+- ✅ **Feature development** - Iterative development workflow
 
-**Recommendation:** GitHub Actions is **currently the primary choice** and meets all requirements.
+**Recommendation:** Fast Build is **the recommended choice for active development** due to 75% speed improvement.
+
+### Use GitHub Actions When:
+- ✅ **CI/CD automation** - Automatic builds on push to main
+- ✅ **Complex workflows** - Tests, linting, validation pipelines
+- ✅ **Multi-step deployments** - Staging → Production promotion
+- ✅ **Team collaboration** - Consistent build process for all developers
+- ✅ **Audit trails** - Built-in monitoring and logging
+
+**Recommendation:** GitHub Actions is **the primary CI/CD choice** for automated deployments.
 
 ### Use ACR Tasks When:
 - You want pure Azure solution
@@ -283,10 +363,33 @@ If you decide to switch from GitHub Actions to ACR Tasks:
 
 ## Summary
 
-- **Current Setup:** GitHub Actions (primary, active)
-- **Status:** ✅ Working well, meets all requirements
-- **Alternative:** ACR Tasks (available, not deployed)
-- **Recommendation:** Continue with GitHub Actions
-- **Option:** Enable ACR Tasks as backup if needed
+### Active Systems
+1. **Fast Build (VM-based)** - For active development (4-7 minutes)
+2. **GitHub Actions** - For CI/CD automation (15-25 minutes)
 
-For most use cases, **GitHub Actions is the right choice** and should remain the primary CI/CD solution.
+### Recommended Workflow
+- **Development**: Use Fast Build for rapid iteration
+  ```bash
+  ./scripts/fast-build.sh dev  # 4-7 minutes
+  ```
+- **CI/CD**: GitHub Actions handles automated deployments
+  ```bash
+  git push origin main  # Automatic deployment to dev
+  ```
+- **Production**: Manual GitHub Actions workflow dispatch
+  - Staging deployment via workflow dispatch
+  - Production deployment via workflow dispatch (requires approval)
+
+### Cost Analysis
+- **Fast Build**: $10-20/month (active development)
+- **GitHub Actions**: Free (within generous limits)
+- **Total**: ~$10-20/month for optimal development speed
+
+### Speed Comparison
+| Workflow | Build Method | Time |
+|----------|-------------|------|
+| **Active Development** | Fast Build | **4-7 min** ⚡ |
+| **Automated CI/CD** | GitHub Actions | 15-25 min |
+| **Alternative CI/CD** | ACR Tasks | 15-20 min |
+
+**Recommendation:** Use Fast Build for development (75% faster), GitHub Actions for CI/CD automation.

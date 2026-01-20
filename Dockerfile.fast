@@ -1,0 +1,21 @@
+# Fast Dockerfile using pre-built binary
+# Build locally with: docker build -f Dockerfile.fast -t <image> --platform linux/amd64 .
+# Requires: agentgateway/target/release/agentgateway binary already built
+
+FROM gcr.io/distroless/cc-debian13
+
+WORKDIR /
+
+# Copy pre-built binary
+COPY agentgateway/target/release/agentgateway /app/agentgateway
+
+# Copy UI assets
+COPY agentgateway/ui/out /opt/agentgateway/ui
+
+# Copy config
+COPY azure-config.yaml /app/config.yaml
+
+LABEL org.opencontainers.image.source=https://github.com/agentgateway/agentgateway
+LABEL org.opencontainers.image.description="Agentgateway is an open source project that is built on AI-native protocols to connect, secure, and observe agent-to-agent and agent-to-tool communication across any agent framework and environment."
+
+ENTRYPOINT ["/app/agentgateway", "--file", "/app/config.yaml"]

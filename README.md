@@ -66,19 +66,36 @@ git submodule update --init --recursive
 
 ### 2. Deploy to Development
 
-The easiest way to deploy is using the automated deployment workflow:
+**Fastest Method: Fast Build (4-7 minutes)**
+
+For active development, use the VM-based fast build system:
+
+```bash
+# Build and deploy to dev (4-7 minutes vs 15-25 minutes traditional)
+./scripts/fast-build.sh dev
+
+# Or to staging/prod
+./scripts/fast-build.sh staging
+./scripts/fast-build.sh prod
+```
+
+See [FAST_BUILD.md](docs/FAST_BUILD.md) for complete documentation on the fast build system.
+
+**Alternative: GitHub Actions (Automatic)**
+
+Push to main branch triggers automatic deployment to dev:
 
 ```bash
 # Push to main branch triggers automatic deployment to dev
 git push origin main
 ```
 
-**Or** build and deploy manually:
+**Alternative: Manual ACR Build (15-20 minutes)**
 
 ```bash
 # Build Docker image in Azure Container Registry
 az acr build \
-  --registry agwimages \
+  --registry unitoneagwdevacr \
   --image unitone-agentgateway:latest \
   --file Dockerfile.acr \
   --platform linux/amd64 \
@@ -86,9 +103,9 @@ az acr build \
 
 # Deploy to Azure Container Apps
 az containerapp update \
-  --name unitone-agentgateway \
+  --name unitone-agw-dev-app \
   --resource-group mcp-gateway-dev-rg \
-  --image agwimages.azurecr.io/unitone-agentgateway:latest
+  --image unitoneagwdevacr.azurecr.io/unitone-agentgateway:latest
 ```
 
 ### 3. Verify Deployment

@@ -1,0 +1,81 @@
+# Base image with Rust toolchain and compiled dependencies
+# This layer changes infrequently - only when dependencies change
+# Build once, reuse many times for fast iteration
+
+ARG BUILDER=base
+
+# ============================================================================
+# Stage 1: Node.js for UI Build
+# ============================================================================
+FROM docker.io/library/node:23.11.0-bookworm AS node
+WORKDIR /app
+COPY agentgateway/ui/package*.json ./
+RUN npm install
+
+# ============================================================================
+# Stage 2: ARM64 sysroot (if needed)
+# ============================================================================
+FROM docker.io/library/rust:1.91.1-trixie AS arm64-sysroot
+FROM docker.io/library/rust:1.91.1-slim-bookworm AS arm64-musl-sysroot
+FROM docker.io/library/rust:1.91.1-slim-bookworm AS amd64-musl-sysroot
+
+# ============================================================================
+# Stage 3: Base Rust Builder with Toolchain
+# ============================================================================
+FROM docker.io/library/rust:1.91.1-trixie AS base-builder
+
+# Install build dependencies
+RUN apt-get update && apt-get -y install \
+    clang-17 \
+    clang++-17 \
+    lld-17 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up Rust environment
+ENV RUSTFLAGS="-C link-arg=-fuse-ld=lld --cfg tokio_unstable"
+WORKDIR /build
+
+# ============================================================================
+# Stage 4: Dependency Cache Layer
+# This is the key optimization - compile dependencies separately
+# ============================================================================
+FROM base-builder AS dependency-builder
+
+# Copy only Cargo manifests to cache dependencies
+COPY agentgateway/Cargo.toml agentgateway/Cargo.lock ./
+COPY agentgateway/crates ./crates/
+
+# Create dummy main.rs files to build dependencies
+RUN mkdir -p src && \
+    echo "fn main() {}" > src/main.rs && \
+    for crate in crates/*/; do \
+        if [ -f "$crate/Cargo.toml" ]; then \
+            mkdir -p "$crate/src" && \
+            echo "fn main() {}" > "$crate/src/main.rs" || true; \
+            echo "pub fn dummy() {}" > "$crate/src/lib.rs" || true; \
+        fi \
+    done
+
+# Build dependencies only (this creates the base layer)
+RUN cargo build --release --features ui && \
+    rm -rf src target/release/deps/agentgateway* target/release/agentgateway
+
+# ============================================================================
+# Final Base Image
+# ============================================================================
+FROM dependency-builder AS base
+
+# This image contains:
+# - Rust toolchain
+# - All compiled dependencies
+# - Build environment ready
+#
+# To use this base image:
+# 1. Build once: docker build -f Dockerfile.base -t unitone-agentgateway-base:latest .
+# 2. Push to registry: docker tag unitone-agentgateway-base:latest <registry>/base:latest
+# 3. Reference in main Dockerfile: FROM <registry>/base:latest
+#
+# Rebuild this base image only when:
+# - Cargo.toml changes (dependencies added/removed/updated)
+# - Rust version needs updating
+# - Build tools need updating
