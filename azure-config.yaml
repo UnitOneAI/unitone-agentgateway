@@ -108,8 +108,3 @@ binds:
           - name: tool-poisoning-test
             mcp:
               host: https://tool-poisoning-test-dev.internal.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io:443/mcp
-
-          # PII Test Server (Azure Container App - Internal, HTTPS 443)
-          - name: pii-test-server
-            mcp:
-              host: https://mcp-pii-test-server-dev.internal.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io:443/mcp
