@@ -1,9 +1,10 @@
 #!/bin/sh
 # Entrypoint script for agentgateway
-# Supports mounted config override: if /app/mounted-config.yaml exists, use it
-# Otherwise, fall back to the default baked-in config at /app/config.yaml
+# Supports mounted config override with priority:
+#   1. /app/mounted-config/config.yaml (Azure Files mount)
+#   2. /app/config.yaml (default baked into image)
 
-MOUNTED_CONFIG="/app/mounted-config.yaml"
+MOUNTED_CONFIG="/app/mounted-config/config.yaml"
 DEFAULT_CONFIG="/app/config.yaml"
 
 if [ -f "$MOUNTED_CONFIG" ]; then
