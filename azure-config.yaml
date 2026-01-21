@@ -81,18 +81,15 @@ binds:
               failure_mode: fail_closed
               timeout_ms: 100
               runs_on:
+                - request
                 - response
-              type: pii_detection
-              pii_types:
-                - email_address
-                - phone_number
-                - social_security_number
-                - credit_card_number
-              confidence_threshold: 0.80
-              scan_fields:
-                - description
-                - input_schema
-              action: block
+                - tool_invoke
+              type: pii
+              detect:
+                - email
+                - credit_card
+              action: mask
+              min_score: 0.3
 
             # Rug Pull Detection Guard (monitors tool changes from any server)
             - id: rug-pull-detector
@@ -105,13 +102,14 @@ binds:
               type: rug_pull
               risk_threshold: 5
 
+          statefulMode: stateful
           targets:
-          # Tool Poisoning Test Server (Azure Container App - Internal)
+          # Tool Poisoning Test Server (Azure Container App - Internal, HTTPS 443)
           - name: tool-poisoning-test
             mcp:
-              host: https://tool-poisoning-test-dev.internal.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io
+              host: https://tool-poisoning-test-dev.internal.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io:443/mcp
 
-          # PII Test Server (Azure Container App - Internal)
+          # PII Test Server (Azure Container App - Internal, HTTPS 443)
           - name: pii-test-server
             mcp:
-              host: http://mcp-pii-test-server-dev.internal.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io:8000/mcp
+              host: https://mcp-pii-test-server-dev.internal.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io:443/mcp
