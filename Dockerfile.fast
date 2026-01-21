@@ -2,9 +2,14 @@
 # Build locally with: docker build -f Dockerfile.fast -t <image> --platform linux/amd64 .
 # Requires: agentgateway/target/release/agentgateway binary already built
 
-FROM gcr.io/distroless/cc-debian13
+FROM docker.io/library/debian:bookworm-slim
 
-WORKDIR /
+# Install runtime dependencies (ca-certificates for HTTPS)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
 
 # Copy pre-built binary
 COPY agentgateway/target/release/agentgateway /app/agentgateway
@@ -12,10 +17,16 @@ COPY agentgateway/target/release/agentgateway /app/agentgateway
 # Copy UI assets
 COPY agentgateway/ui/out /opt/agentgateway/ui
 
-# Copy config
+# Copy default config (baked into image)
 COPY azure-config.yaml /app/config.yaml
+
+# Copy entrypoint script that supports mounted config override
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 LABEL org.opencontainers.image.source=https://github.com/agentgateway/agentgateway
 LABEL org.opencontainers.image.description="Agentgateway is an open source project that is built on AI-native protocols to connect, secure, and observe agent-to-agent and agent-to-tool communication across any agent framework and environment."
 
-ENTRYPOINT ["/app/agentgateway", "--file", "/app/config.yaml"]
+# Use entrypoint script that checks for mounted config at /app/mounted-config.yaml
+# If mounted config exists, it takes priority over the default /app/config.yaml
+ENTRYPOINT ["/app/entrypoint.sh"]

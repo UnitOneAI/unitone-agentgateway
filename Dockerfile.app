@@ -49,20 +49,28 @@ RUN apt-get update && \
     libssl3 \
     && rm -rf /var/lib/apt/lists/*
 
+WORKDIR /app
+
 # Copy binary
-COPY --from=app-builder /build/target/release/agentgateway /usr/local/bin/
+COPY --from=app-builder /build/target/release/agentgateway /app/agentgateway
 
 # Copy UI assets
 COPY --from=ui-builder /app/out /opt/agentgateway/ui
 
-WORKDIR /opt/agentgateway
+# Copy default config (baked into image)
+COPY azure-config.yaml /app/config.yaml
+
+# Copy entrypoint script that supports mounted config override
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 # Expose ports
 EXPOSE 8080 15000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD ["/usr/local/bin/agentgateway", "--version"] || exit 1
+  CMD ["/app/agentgateway", "--version"] || exit 1
 
-ENTRYPOINT ["/usr/local/bin/agentgateway"]
-CMD ["--file", "/etc/agentgateway/config.yaml"]
+# Use entrypoint script that checks for mounted config at /app/mounted-config.yaml
+# If mounted config exists, it takes priority over the default /app/config.yaml
+ENTRYPOINT ["/app/entrypoint.sh"]
