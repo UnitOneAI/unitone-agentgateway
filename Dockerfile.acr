@@ -109,9 +109,10 @@ RUN sh -c 'export VERSION="${VERSION}" && \
 #       fi; \
 #     fi
 
-FROM docker.io/library/debian:bookworm-slim AS runner
+FROM docker.io/library/debian:trixie-slim AS runner
 
 # Install runtime dependencies (ca-certificates for HTTPS)
+# Using trixie to match build environment's GLIBC version (2.38/2.39)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates && \
     rm -rf /var/lib/apt/lists/*

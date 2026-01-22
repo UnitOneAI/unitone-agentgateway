@@ -40,7 +40,7 @@ RUN cargo build --release --features ui
 # ============================================================================
 # Stage 3: Runtime Image
 # ============================================================================
-FROM docker.io/library/debian:bookworm-slim AS runtime
+FROM docker.io/library/debian:trixie-slim AS runtime
 
 # Install runtime dependencies
 RUN apt-get update && \

@@ -2,9 +2,10 @@
 # Build locally with: docker build -f Dockerfile.fast -t <image> --platform linux/amd64 .
 # Requires: agentgateway/target/release/agentgateway binary already built
 
-FROM docker.io/library/debian:bookworm-slim
+FROM docker.io/library/debian:trixie-slim
 
 # Install runtime dependencies (ca-certificates for HTTPS)
+# Using trixie to match build environment's GLIBC version (2.38/2.39)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates && \
     rm -rf /var/lib/apt/lists/*
