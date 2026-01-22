@@ -10,12 +10,20 @@ COPY agentgateway/ui .
 # Apply UnitOne UI customizations (overrides default UI files)
 COPY ui-customizations/ ./
 
-# Verify playground uses StreamableHTTP (not SSE)
+# Verify ui-customizations overlay is applied
 RUN echo "=== Verifying ui-customizations overlay ===" && \
     head -6 src/app/playground/page.tsx && \
     grep -q "StreamableHTTPClientTransport" src/app/playground/page.tsx && \
     echo "✓ Playground uses StreamableHTTPClientTransport" || \
-    (echo "✗ ERROR: Playground still uses SSE transport!" && exit 1)
+    (echo "✗ ERROR: Playground still uses SSE transport!" && exit 1) && \
+    echo "=== Verifying logo component override ===" && \
+    cat src/components/agentgateway-logo.tsx && \
+    grep -q "unitone-logo.png" src/components/agentgateway-logo.tsx && \
+    echo "✓ Logo uses UnitOne PNG image" || \
+    (echo "✗ ERROR: Logo component not overridden!" && exit 1) && \
+    echo "=== Verifying logo image exists ===" && \
+    ls -la public/images/unitone-logo.png && \
+    echo "✓ Logo image exists"
 
 RUN npm install
 
