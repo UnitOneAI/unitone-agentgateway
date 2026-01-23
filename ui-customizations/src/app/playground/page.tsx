@@ -250,12 +250,14 @@ export default function PlaygroundPage() {
             // Use window.location.hostname when listener hostname is not set
             // This ensures the UI connects to the correct domain in deployed environments
             const hostname = listener.hostname || (typeof window !== 'undefined' ? window.location.hostname : "localhost");
-            const port = bind.port; // Use the actual port from the bind configuration
-            // For deployed environments, use the browser's origin to avoid CORS issues
-            const isDeployed = typeof window !== 'undefined' && !window.location.hostname.includes('localhost');
-            const baseEndpoint = isDeployed
-              ? `${window.location.origin}`
-              : `${protocol}://${hostname}:${port}`;
+            const configPort = bind.port;
+            // Local dev: browser URL has explicit port (e.g., 127.0.0.1:15000) -> use config port for routes
+            // Deployed (Azure): browser URL has no port (standard 80/443) -> use origin (ingress handles routing)
+            // Drawback: if Azure exposed non-standard port, this would break (uncommon scenario)
+            const hasExplicitPort = typeof window !== 'undefined' && window.location.port !== '';
+            const baseEndpoint = hasExplicitPort
+              ? `${protocol}://${hostname}:${configPort}`
+              : (typeof window !== 'undefined' ? window.location.origin : `${protocol}://${hostname}:${configPort}`);
 
             // Generate route path and description with better pattern recognition
             let routePath = "/";
