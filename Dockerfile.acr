@@ -23,7 +23,11 @@ RUN echo "=== Verifying ui-customizations overlay ===" && \
     (echo "✗ ERROR: Logo component not overridden!" && exit 1) && \
     echo "=== Verifying logo image exists ===" && \
     ls -la public/images/unitone-logo.png && \
-    echo "✓ Logo image exists"
+    echo "✓ Logo image exists" && \
+    echo "=== Verifying favicon override ===" && \
+    grep -q "1a3a5c" public/favicon.svg && \
+    echo "✓ Favicon uses UnitOne blue color" || \
+    (echo "✗ ERROR: Favicon not overridden!" && exit 1)
 
 RUN npm install
 

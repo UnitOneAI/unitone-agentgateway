@@ -105,7 +105,8 @@ ssh -o StrictHostKeyChecking=no azureuser@$VM_IP 'mkdir -p /home/azureuser/works
 
 # Create tar archive locally and extract on VM in one pipeline
 # This preserves all directory structures and is faster than rsync
-tar czf - \
+# COPYFILE_DISABLE=1 suppresses macOS extended attributes warnings on Linux
+COPYFILE_DISABLE=1 tar czf - \
   --exclude='target' \
   --exclude='node_modules' \
   --exclude='.git' \
