@@ -1,0 +1,68 @@
+# Docker Compose for E2E Testing
+#
+# This compose file orchestrates:
+# - MCP test servers (PII, tool-poisoning, rug-pull) from Azure ACR
+# - AgentGateway configured to route to the test servers
+# - Test runner container for CI/CD
+#
+# Usage:
+#   CI/CD mode (fully containerized):
+#     docker-compose up --build --abort-on-container-exit --exit-code-from test-runner
+#
+#   Development mode (services only, run tests from host):
+#     docker-compose up -d mcp-test-servers agentgateway
+#     GATEWAY_URL=http://localhost:8080 python ../e2e_pii_guard_test.py
+
+services:
+  # MCP Test Servers - PII (8000), Tool Poisoning (8010), Rug Pull (8020)
+  mcp-test-servers:
+    image: attacks-test:latest
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import socket; s=socket.socket(); s.settimeout(2); s.connect(('localhost',8000)); s.close()\""]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+
+  # AgentGateway
+  agentgateway:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.acr
+    volumes:
+      - ./configs/e2e-gateway-config.yaml:/app/config.yaml:ro
+    ports:
+      - "8080:8080"
+    depends_on:
+      mcp-test-servers:
+        condition: service_healthy
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/ui/ || exit 1"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # Test Runner (for CI/CD mode)
+  test-runner:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.test-runner
+    environment:
+      - GATEWAY_URL=http://agentgateway:8080
+      - MCP_TRANSPORT=streamable
+    depends_on:
+      agentgateway:
+        condition: service_healthy
+    networks:
+      - test-network
+    volumes:
+      - ..:/tests:ro
+
+networks:
+  test-network:
+    driver: bridge

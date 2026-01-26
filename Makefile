@@ -18,7 +18,7 @@
 #       path: terraform
 #       token: ${{ secrets.GITHUB_TOKEN }}
 
-.PHONY: help build build-ui deploy-dev deploy-staging deploy-prod test test-e2e clean update-submodule terraform-init terraform-plan terraform-apply logs-dev logs-staging logs-prod check-terraform-dir
+.PHONY: help build build-ui deploy-dev deploy-staging deploy-prod test test-e2e clean update-submodule terraform-init terraform-plan terraform-apply logs-dev logs-staging logs-prod check-terraform-dir test-docker test-docker-up test-docker-down test-docker-logs test-docker-build
 
 # Default environment
 ENV ?= dev
@@ -122,6 +122,37 @@ test-staging: ## Run E2E tests against staging
 	cd agentgateway/tests && \
 	GATEWAY_URL=$(GATEWAY_URL_staging) \
 	./test_venv/bin/python3 e2e_mcp_sse_test.py
+
+# Docker-based E2E Tests
+DOCKER_COMPOSE_FILE := tests/docker/docker-compose.yaml
+
+test-docker: ## Run all E2E tests in Docker (fully containerized)
+	@echo "Running E2E tests in Docker..."
+	@echo "Note: Requires ACR login (az acr login --name agwimages)"
+	docker-compose -f $(DOCKER_COMPOSE_FILE) up --build --abort-on-container-exit --exit-code-from test-runner
+	docker-compose -f $(DOCKER_COMPOSE_FILE) down -v
+
+test-docker-build: ## Build Docker images for E2E tests
+	@echo "Building E2E test Docker images..."
+	docker-compose -f $(DOCKER_COMPOSE_FILE) build
+
+test-docker-up: ## Start E2E test services (gateway + MCP servers) for local testing
+	@echo "Starting E2E test services..."
+	@echo "Note: Requires ACR login (az acr login --name agwimages)"
+	docker-compose -f $(DOCKER_COMPOSE_FILE) up -d mcp-test-servers agentgateway
+	@echo "Waiting for services to be healthy..."
+	@ping -n 16 127.0.0.1 >nul 2>&1 || sleep 15
+	@docker-compose -f $(DOCKER_COMPOSE_FILE) ps
+	@echo ""
+	@echo "Services running. Gateway available at http://localhost:8080"
+	@echo "Run tests with: GATEWAY_URL=http://localhost:8080 python tests/e2e_security_guards_test.py"
+
+test-docker-down: ## Stop E2E test services and cleanup
+	@echo "Stopping E2E test services..."
+	docker-compose -f $(DOCKER_COMPOSE_FILE) down -v
+
+test-docker-logs: ## Show logs from E2E test services
+	docker-compose -f $(DOCKER_COMPOSE_FILE) logs -f
 
 # Terraform targets
 terraform-init: ## Initialize Terraform for specified environment

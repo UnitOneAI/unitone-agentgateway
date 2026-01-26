@@ -11,6 +11,7 @@ This test suite validates:
 
 import asyncio
 import json
+import os
 import sys
 import uuid
 from typing import Any, Dict, List, Optional
@@ -22,6 +23,10 @@ except ImportError:
     print("Error: Required packages not installed")
     print("Install with: pip install httpx")
     sys.exit(1)
+
+# Configuration from environment variables
+DEFAULT_GATEWAY_URL = "https://unitone-agentgateway.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io"
+DEFAULT_ROUTE = "pii-test"
 
 
 class MCPSSEClient:
@@ -278,8 +283,8 @@ class TestResults:
 
 async def run_tests():
     """Run all E2E tests."""
-    # Configuration
-    gateway_url = "https://unitone-agentgateway.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io"
+    # Configuration from environment variable
+    gateway_url = os.environ.get("GATEWAY_URL", DEFAULT_GATEWAY_URL)
 
     print("=" * 60)
     print("AgentGateway MCP over SSE - E2E Test Suite")

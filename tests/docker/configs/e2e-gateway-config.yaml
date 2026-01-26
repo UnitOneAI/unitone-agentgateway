@@ -1,0 +1,138 @@
+# E2E Test Gateway Configuration
+#
+# This configuration is used when running tests in Docker.
+# It routes MCP requests to the mcp-test-servers container.
+#
+# Routes:
+#   /pii-test  -> mcp-test-servers:8000 (PII test server)
+#   /poison    -> mcp-test-servers:8010 (Tool poisoning test server)
+#   /rug-pull  -> mcp-test-servers:8020 (Rug pull test server)
+
+binds:
+- port: 8080
+  listeners:
+  - hostname: localhost  # Match requests with Host: localhost
+    routes:
+    # UI route
+    - name: ui-route
+      matches:
+      - path:
+          pathPrefix: /ui
+      backends:
+      - host: 127.0.0.1:15000
+
+    # Admin API route
+    - name: admin-api-route
+      matches:
+      - path:
+          pathPrefix: /config
+      backends:
+      - host: 127.0.0.1:15000
+
+    # PII test route - connects to PII MCP server on port 8000
+    - name: pii-test
+      hostnames: []
+      matches:
+      - path:
+          pathPrefix: /pii-test
+      backends:
+      - mcp:
+          securityGuards:
+          - id: tool-poisoning
+            type: tool_poisoning
+            runs_on:
+            - request
+            - response
+          - id: pii-guard
+            type: pii
+            runs_on:
+            - request
+            - response
+            - tool_invoke
+            detect:
+            - email
+            - credit_card
+            - ssn
+            - phone_number
+            action: mask
+          targets:
+          - name: pii-mcp
+            mcp:
+              host: http://mcp-test-servers:8000/mcp
+          statefulMode: stateful
+      policies:
+        cors:
+          allowCredentials: false
+          allowHeaders:
+          - '*'
+          allowMethods:
+          - '*'
+          allowOrigins:
+          - '*'
+          exposeHeaders:
+          - mcp-session-id
+          maxAge: null
+
+    # Tool poisoning test route - connects to port 8010
+    - name: tool-poisoning
+      hostnames: []
+      matches:
+      - path:
+          pathPrefix: /poison
+      backends:
+      - mcp:
+          securityGuards:
+          - id: tool-poisoning
+            type: tool_poisoning
+            runs_on:
+            - request
+            - response
+          targets:
+          - name: poison
+            mcp:
+              host: http://mcp-test-servers:8010/mcp
+          statefulMode: stateful
+      policies:
+        cors:
+          allowCredentials: false
+          allowHeaders:
+          - '*'
+          allowMethods:
+          - '*'
+          allowOrigins:
+          - '*'
+          exposeHeaders:
+          - mcp-session-id
+          maxAge: null
+
+    # Rug pull test route - connects to port 8020
+    - name: rug-pull
+      hostnames: []
+      matches:
+      - path:
+          pathPrefix: /rug-pull
+      backends:
+      - mcp:
+          securityGuards:
+          - id: rug-pull
+            type: rug_pull
+            runs_on:
+            - response
+            risk_threshold: 5
+          targets:
+          - name: rug-pull
+            mcp:
+              host: http://mcp-test-servers:8020/mcp
+          statefulMode: stateful
+      policies:
+        cors:
+          allowCredentials: false
+          allowHeaders:
+          - '*'
+          allowMethods:
+          - '*'
+          allowOrigins:
+          - '*'
+          exposeHeaders:
+          - mcp-session-id
+          maxAge: null
