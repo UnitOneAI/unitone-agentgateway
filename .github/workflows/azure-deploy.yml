@@ -55,14 +55,14 @@ jobs:
 
       - name: Run E2E Tests
         run: |
-          docker-compose -f tests/docker/docker-compose.yaml up \
+          docker compose -f tests/docker/docker-compose.yaml up \
             --build \
             --abort-on-container-exit \
             --exit-code-from test-runner
 
       - name: Cleanup
         if: always()
-        run: docker-compose -f tests/docker/docker-compose.yaml down -v
+        run: docker compose -f tests/docker/docker-compose.yaml down -v
 
   build-and-deploy:
     runs-on: ubuntu-latest
