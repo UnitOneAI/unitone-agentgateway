@@ -78,11 +78,11 @@ docker-compose -f tests/docker/docker-compose.yaml logs -f agentgateway
 
 | Service | Image | Ports | Description |
 |---------|-------|-------|-------------|
-| mcp-test-servers | attacks-test:latest (local) | 8000, 8010, 8020 | PII, Tool Poisoning, Rug Pull test servers |
+| mcp-test-servers | agwimages.azurecr.io/pii-mcp-test:latest | 8000, 8010, 8020 | PII, Tool Poisoning, Rug Pull test servers |
 | agentgateway | Built from Dockerfile.acr | 8080 | AgentGateway with security guards |
 | test-runner | Built from Dockerfile.test-runner | - | Python test container (CI/CD only) |
 
-> **Note:** For CI/CD, change the image to `agwimages.azurecr.io/pii-mcp-test:latest` in docker-compose.yaml
+> **Note:** Requires ACR login before running: `az acr login --name agwimages`
 
 ## Configuration
 
