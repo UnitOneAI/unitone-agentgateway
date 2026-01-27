@@ -1,23 +1,27 @@
 # Docker Compose for E2E Testing
 #
 # This compose file orchestrates:
-# - MCP test servers (PII, tool-poisoning, rug-pull) from Azure ACR
+# - MCP test servers (PII, tool-poisoning, rug-pull) built from testservers/
 # - AgentGateway configured to route to the test servers
 # - Test runner container for CI/CD
+#
+# All images are built from source - no external dependencies required.
 #
 # Usage:
 #   CI/CD mode (fully containerized):
 #     docker-compose up --build --abort-on-container-exit --exit-code-from test-runner
 #
 #   Development mode (services only, run tests from host):
-#     docker-compose up -d mcp-test-servers agentgateway
+#     docker-compose up -d --build mcp-test-servers agentgateway
 #     GATEWAY_URL=http://localhost:8080 python ../e2e_pii_guard_test.py
 
 services:
   # MCP Test Servers - PII (8000), Tool Poisoning (8010), Rug Pull (8020)
-  # Image contains all 3 test servers started via start-servers.sh
+  # Built from testservers/ directory, runs all 3 servers via start-servers.sh
   mcp-test-servers:
-    image: agwimages.azurecr.io/pii-mcp-test:latest
+    build:
+      context: ../../testservers
+      dockerfile: Dockerfile
     networks:
       - test-network
     healthcheck:

@@ -16,11 +16,8 @@ This directory contains Docker infrastructure for running E2E tests against Agen
 ## Prerequisites
 
 1. **Docker** and **Docker Compose** installed
-2. **Azure CLI** authenticated with ACR access
-3. **ACR Login** for pulling the MCP test server image:
-   ```bash
-   az acr login --name agwimages
-   ```
+
+That's it! All images are built from source - no ACR access required.
 
 ## Usage
 
@@ -76,13 +73,13 @@ docker-compose -f tests/docker/docker-compose.yaml logs -f agentgateway
 
 ## Services
 
-| Service | Image | Ports | Description |
-|---------|-------|-------|-------------|
-| mcp-test-servers | agwimages.azurecr.io/pii-mcp-test:latest | 8000, 8010, 8020 | PII, Tool Poisoning, Rug Pull test servers |
-| agentgateway | Built from Dockerfile.acr | 8080 | AgentGateway with security guards |
-| test-runner | Built from Dockerfile.test-runner | - | Python test container (CI/CD only) |
+| Service | Source | Ports | Description |
+|---------|--------|-------|-------------|
+| mcp-test-servers | Built from `testservers/` | 8000, 8010, 8020 | PII, Tool Poisoning, Rug Pull test servers |
+| agentgateway | Built from `Dockerfile.acr` | 8080 | AgentGateway with security guards |
+| test-runner | Built from `Dockerfile.test-runner` | - | Python test container (CI/CD only) |
 
-> **Note:** Requires ACR login before running: `az acr login --name agwimages`
+All images are built from source during `docker-compose up --build`.
 
 ## Configuration
 
@@ -95,16 +92,6 @@ The gateway is configured via `configs/e2e-gateway-config.yaml`:
 | `/rug-pull` | mcp-test-servers:8020 | Rug pull detection |
 
 ## Troubleshooting
-
-### ACR Authentication Issues
-
-```bash
-# Ensure you're logged in
-az acr login --name agwimages
-
-# Verify image exists
-az acr repository show-tags --name agwimages --repository pii-mcp-test
-```
 
 ### Service Not Starting
 
@@ -123,11 +110,9 @@ docker-compose -f tests/docker/docker-compose.yaml ps
 2. Check MCP servers: `curl http://localhost:8000/mcp` (if ports exposed)
 3. Verify network: `docker network ls` and `docker network inspect docker_test-network`
 
-## Building the MCP Test Server Image
+## Test Server Source
 
-If the image doesn't exist in ACR, build and push from the PiiMcpTest repo:
-
-```bash
-cd ../../../PiiMcpTest  # or wherever PiiMcpTest is located
-az acr build --registry agwimages --image pii-mcp-test:latest .
-```
+The MCP test servers are located in `testservers/` directory at the project root. They include:
+- **PII Test Server** - Generates fake PII data for testing detection
+- **Tool Poisoning Test Server** - Contains malicious patterns in tool metadata
+- **Rug Pull Test Server** - Changes tool metadata after initial listing
