@@ -46,9 +46,9 @@ Start services and run tests from your host machine - ideal for development:
 # Start services
 make test-docker-up
 
-# Run specific tests (use --transport streamable)
-GATEWAY_URL=http://localhost:8080 python tests/e2e_pii_guard_test.py --transport streamable
-GATEWAY_URL=http://localhost:8080 python tests/e2e_security_guards_test.py --transport streamable
+# Run specific tests (streamable transport is default)
+GATEWAY_URL=http://localhost:8080 python tests/e2e_pii_guard_test.py
+GATEWAY_URL=http://localhost:8080 python tests/e2e_security_guards_test.py
 
 # Stop services
 make test-docker-down
@@ -63,7 +63,7 @@ The MCP test servers use **Streamable HTTP** transport (FastMCP default), which 
 | `streamable` | Plain JSON `{...}` | ✅ Yes (recommended) |
 | `sse` | SSE format `data: {...}` | ❌ No (servers don't support SSE) |
 
-Always use `--transport streamable` when running tests against the Docker MCP test servers.
+Streamable HTTP is the default transport, so no `--transport` flag is needed.
 
 ### View Logs
 

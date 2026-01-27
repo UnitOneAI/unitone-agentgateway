@@ -14,8 +14,9 @@ Usage:
     GATEWAY_URL=http://localhost:8080 python tests/e2e_security_guards_test.py
 
 Transport Selection:
-    MCP_TRANSPORT=streamable python tests/e2e_security_guards_test.py  # Streamable HTTP (default)
-    MCP_TRANSPORT=sse python tests/e2e_security_guards_test.py         # SSE transport
+    python tests/e2e_security_guards_test.py                        # Streamable HTTP (default)
+    python tests/e2e_security_guards_test.py --transport sse        # SSE transport
+    python tests/e2e_security_guards_test.py --transport all        # Run with all transports
 """
 
 import asyncio
@@ -334,8 +335,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--transport", "-t",
         choices=["sse", "streamable", "all"],
-        default=os.environ.get("MCP_TRANSPORT", "streamable"),
-        help="MCP transport type (default: streamable, or MCP_TRANSPORT env var)"
+        default="streamable",
+        help="MCP transport type (default: streamable)"
     )
     args = parser.parse_args()
 

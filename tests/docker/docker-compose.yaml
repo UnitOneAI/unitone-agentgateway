@@ -16,7 +16,7 @@
 services:
   # MCP Test Servers - PII (8000), Tool Poisoning (8010), Rug Pull (8020)
   mcp-test-servers:
-    image: attacks-test:latest
+    image: mcp-pii-test-server:latest
     networks:
       - test-network
     healthcheck:
@@ -41,7 +41,7 @@ services:
     networks:
       - test-network
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/ui/ || exit 1"]
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/15021"]
       interval: 5s
       timeout: 10s
       retries: 10

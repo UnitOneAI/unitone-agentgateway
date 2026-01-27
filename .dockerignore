@@ -50,6 +50,8 @@ azure-pipelines.yml
 # Scripts (deploy scripts not needed in image)
 scripts/
 *.sh
+# Exception: Allow entrypoint script for Docker image
+!entrypoint.sh
 
 # Examples and test code
 examples/

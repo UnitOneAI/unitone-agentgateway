@@ -22,7 +22,6 @@ COPY *.py ./
 
 # Environment variables
 ENV GATEWAY_URL=http://agentgateway:8080
-ENV MCP_TRANSPORT=streamable
 ENV PYTHONUNBUFFERED=1
 
 # Default: run security guard tests with streamable transport

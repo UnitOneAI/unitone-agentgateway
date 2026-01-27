@@ -11,7 +11,7 @@
 binds:
 - port: 8080
   listeners:
-  - hostname: localhost  # Match requests with Host: localhost
+  - hostname: "*"  # Match all hosts (localhost, agentgateway, etc.)
     routes:
     # UI route
     - name: ui-route

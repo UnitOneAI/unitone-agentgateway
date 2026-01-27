@@ -22,14 +22,53 @@ on:
         description: 'Docker image tag (optional, defaults to commit SHA)'
         required: false
         type: string
+      run_e2e_tests:
+        description: 'Run E2E tests before deployment'
+        type: boolean
+        default: true
 
 env:
   ACR_REGISTRY: agwimages.azurecr.io
   IMAGE_NAME: unitone-agentgateway
 
 jobs:
+  e2e-tests:
+    runs-on: ubuntu-latest
+    # Run tests: always on push/PR, optional on manual dispatch
+    if: >
+      github.event_name != 'workflow_dispatch' ||
+      inputs.run_e2e_tests == true
+
+    steps:
+      - name: Checkout repository with submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: Azure Login (for ACR access)
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to ACR
+        run: az acr login --name agwimages
+
+      - name: Run E2E Tests
+        run: |
+          docker-compose -f tests/docker/docker-compose.yaml up \
+            --build \
+            --abort-on-container-exit \
+            --exit-code-from test-runner
+
+      - name: Cleanup
+        if: always()
+        run: docker-compose -f tests/docker/docker-compose.yaml down -v
+
   build-and-deploy:
     runs-on: ubuntu-latest
+    # Wait for tests if they ran, otherwise proceed directly
+    needs: [e2e-tests]
+    if: always() && (needs.e2e-tests.result == 'success' || needs.e2e-tests.result == 'skipped')
 
     steps:
       - name: Checkout repository with submodules
