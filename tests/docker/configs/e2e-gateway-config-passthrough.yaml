@@ -1,0 +1,97 @@
+# E2E Test Gateway Configuration (Passthrough)
+#
+# This configuration uses simple HTTP host proxying without MCP-specific handling.
+# Use this for basic connectivity testing when full MCP/security-guards features
+# aren't available in the gateway image.
+#
+# Routes:
+#   /pii-test/*  -> mcp-test-servers:8000/*
+#   /poison/*    -> mcp-test-servers:8010/*
+#   /rug-pull/*  -> mcp-test-servers:8020/*
+
+binds:
+- port: 8080
+  listeners:
+  - hostname: "*"
+    routes:
+    # UI route
+    - name: ui-route
+      matches:
+      - path:
+          pathPrefix: /ui
+      backends:
+      - host: 127.0.0.1:15000
+
+    # Admin API route
+    - name: admin-api-route
+      matches:
+      - path:
+          pathPrefix: /config
+      backends:
+      - host: 127.0.0.1:15000
+
+    # PII test route - simple proxy to MCP server
+    - name: pii-test
+      matches:
+      - path:
+          pathPrefix: /pii-test
+      rewrite:
+        prefixRewrite: /
+      backends:
+      - host: mcp-test-servers:8000
+      policies:
+        cors:
+          allowCredentials: false
+          allowHeaders:
+          - '*'
+          allowMethods:
+          - '*'
+          allowOrigins:
+          - '*'
+          exposeHeaders:
+          - mcp-session-id
+          maxAge: null
+
+    # Tool poisoning test route
+    - name: tool-poisoning
+      matches:
+      - path:
+          pathPrefix: /poison
+      rewrite:
+        prefixRewrite: /
+      backends:
+      - host: mcp-test-servers:8010
+      policies:
+        cors:
+          allowCredentials: false
+          allowHeaders:
+          - '*'
+          allowMethods:
+          - '*'
+          allowOrigins:
+          - '*'
+          exposeHeaders:
+          - mcp-session-id
+          maxAge: null
+
+    # Rug pull test route
+    - name: rug-pull
+      matches:
+      - path:
+          pathPrefix: /rug-pull
+      rewrite:
+        prefixRewrite: /
+      backends:
+      - host: mcp-test-servers:8020
+      policies:
+        cors:
+          allowCredentials: false
+          allowHeaders:
+          - '*'
+          allowMethods:
+          - '*'
+          allowOrigins:
+          - '*'
+          exposeHeaders:
+          - mcp-session-id
+          maxAge: null

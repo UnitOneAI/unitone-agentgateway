@@ -2,10 +2,11 @@
 #
 # This compose file orchestrates:
 # - MCP test servers (PII, tool-poisoning, rug-pull) built from testservers/
-# - AgentGateway configured to route to the test servers
+# - AgentGateway using pre-built image from ACR (to avoid heavy local Rust builds)
 # - Test runner container for CI/CD
 #
-# All images are built from source - no external dependencies required.
+# Test servers are built from source - no external image dependencies for tests.
+# AgentGateway uses ACR image to avoid memory-intensive Rust compilation locally.
 #
 # Usage:
 #   CI/CD mode (fully containerized):
@@ -14,6 +15,8 @@
 #   Development mode (services only, run tests from host):
 #     docker-compose up -d --build mcp-test-servers agentgateway
 #     GATEWAY_URL=http://localhost:8080 python ../e2e_pii_guard_test.py
+#
+# Note: For local builds of agentgateway, increase Docker memory to 10GB+
 
 services:
   # MCP Test Servers - PII (8000), Tool Poisoning (8010), Rug Pull (8020)
@@ -31,13 +34,16 @@ services:
       retries: 5
       start_period: 10s
 
-  # AgentGateway
+  # AgentGateway - using pre-built ACR image (local Rust build requires 10GB+ RAM)
+  # To build locally instead: docker build -f Dockerfile.acr -t unitone-agentgateway ../..
+  #
+  # Config options:
+  # - e2e-gateway-config.yaml: Full config with security guards (requires security-guards image)
+  # - e2e-gateway-config-basic.yaml: Basic config without security guards (works with any image)
   agentgateway:
-    build:
-      context: ../..
-      dockerfile: Dockerfile.acr
+    image: agwimages.azurecr.io/unitone-agentgateway:latest
     volumes:
-      - ./configs/e2e-gateway-config.yaml:/app/config.yaml:ro
+      - ./configs/e2e-gateway-config-passthrough.yaml:/app/config.yaml:ro
     ports:
       - "8080:8080"
     depends_on:

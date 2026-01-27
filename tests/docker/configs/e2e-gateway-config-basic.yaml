@@ -1,0 +1,108 @@
+# E2E Test Gateway Configuration (Basic - No Security Guards)
+#
+# This configuration is used for basic testing without security guards.
+# Use this when the security-guards-enabled image isn't available.
+#
+# Routes:
+#   /pii-test  -> mcp-test-servers:8000 (PII test server)
+#   /poison    -> mcp-test-servers:8010 (Tool poisoning test server)
+#   /rug-pull  -> mcp-test-servers:8020 (Rug pull test server)
+
+binds:
+- port: 8080
+  listeners:
+  - hostname: "*"
+    routes:
+    # UI route
+    - name: ui-route
+      matches:
+      - path:
+          pathPrefix: /ui
+      backends:
+      - host: 127.0.0.1:15000
+
+    # Admin API route
+    - name: admin-api-route
+      matches:
+      - path:
+          pathPrefix: /config
+      backends:
+      - host: 127.0.0.1:15000
+
+    # PII test route - connects to PII MCP server on port 8000
+    - name: pii-test
+      hostnames: []
+      matches:
+      - path:
+          pathPrefix: /pii-test
+      backends:
+      - mcp:
+          targets:
+          - name: pii-mcp
+            mcp:
+              host: http://mcp-test-servers:8000/mcp
+          statefulMode: stateful
+      policies:
+        cors:
+          allowCredentials: false
+          allowHeaders:
+          - '*'
+          allowMethods:
+          - '*'
+          allowOrigins:
+          - '*'
+          exposeHeaders:
+          - mcp-session-id
+          maxAge: null
+
+    # Tool poisoning test route - connects to port 8010
+    - name: tool-poisoning
+      hostnames: []
+      matches:
+      - path:
+          pathPrefix: /poison
+      backends:
+      - mcp:
+          targets:
+          - name: poison
+            mcp:
+              host: http://mcp-test-servers:8010/mcp
+          statefulMode: stateful
+      policies:
+        cors:
+          allowCredentials: false
+          allowHeaders:
+          - '*'
+          allowMethods:
+          - '*'
+          allowOrigins:
+          - '*'
+          exposeHeaders:
+          - mcp-session-id
+          maxAge: null
+
+    # Rug pull test route - connects to port 8020
+    - name: rug-pull
+      hostnames: []
+      matches:
+      - path:
+          pathPrefix: /rug-pull
+      backends:
+      - mcp:
+          targets:
+          - name: rug-pull
+            mcp:
+              host: http://mcp-test-servers:8020/mcp
+          statefulMode: stateful
+      policies:
+        cors:
+          allowCredentials: false
+          allowHeaders:
+          - '*'
+          allowMethods:
+          - '*'
+          allowOrigins:
+          - '*'
+          exposeHeaders:
+          - mcp-session-id
+          maxAge: null
