@@ -1,13 +1,18 @@
-# Azure Container App Configuration
-# Exposes both UI and MCP on port 8080
-# Note: admin server defaults to 127.0.0.1:15000 (no need to specify)
+# UnitOne AgentGateway - Default Azure Configuration
+#
+# This is the default configuration baked into the Docker image.
+# Override by mounting a config file to /app/mounted-config/config.yaml
+#
+# For configuration reference, see: https://github.com/agentgateway/agentgateway
+
 binds:
 - port: 8080
   listeners:
-  - name: http-listener
-    protocol: HTTP
+  - hostname: "*"
+    name: default
+    protocol: http
     routes:
-    # Admin UI route (must come before MCP routes)
+    # UI Dashboard
     - name: ui-route
       matches:
       - path:
@@ -15,7 +20,7 @@ binds:
       backends:
       - host: 127.0.0.1:15000
 
-    # Admin API route (for config management)
+    # Admin API
     - name: admin-api-route
       matches:
       - path:
@@ -23,98 +28,35 @@ binds:
       backends:
       - host: 127.0.0.1:15000
 
-    # Health check route (must come before MCP routes)
-    - name: health-route
-      matches:
-      - path:
-          pathPrefix: /healthz/ready
-      backends:
-      - host: 127.0.0.1:15021
-
-    # MCP routes
-    - name: mcp-route
+    # Default MCP route - configure your MCP servers here
+    # or mount a custom config file to override
+    - name: default-mcp
       matches:
       - path:
           pathPrefix: /mcp
-      policies:
-        cors:
-          allowOrigins:
-            - "*"
-          allowHeaders:
-            - mcp-protocol-version
-            - content-type
-            - cache-control
-            - accept
-          allowMethods:
-            - GET
-            - POST
-            - OPTIONS
-          allowCredentials: true
       backends:
       - mcp:
-          # Security guards configuration
-          securityGuards:
-            # Tool Poisoning Detection Guard
-            - id: tool-poisoning-detector
-              enabled: true
-              priority: 100
-              failure_mode: fail_closed
-              timeout_ms: 50
-              runs_on:
-                - response
-              type: tool_poisoning
-              strict_mode: true
-              custom_patterns:
-                - "(?i)SYSTEM:\\s*override"
-                - "(?i)ignore\\s+all\\s+previous\\s+instructions"
-                - "(?i)\\[HIDDEN\\]"
-              scan_fields:
-                - name
-                - description
-                - input_schema
-              alert_threshold: 1
-
-            # PII Detection Guard
-            - id: pii-detector
-              enabled: true
-              priority: 50
-              failure_mode: fail_closed
-              timeout_ms: 100
-              runs_on:
-                - request
-                - response
-                - tool_invoke
-              type: pii
-              detect:
-                - email
-                - credit_card
-              action: mask
-              min_score: 0.3
-
-            # Rug Pull Detection Guard (monitors tool changes from any server)
-            - id: rug-pull-detector
-              enabled: true
-              priority: 75
-              failure_mode: fail_closed
-              timeout_ms: 50
-              runs_on:
-                - response
-              type: rug_pull
-              risk_threshold: 5
-
-          statefulMode: stateful
           targets:
-          # Tool Poisoning Test Server (Azure Container App - Internal, HTTPS 443)
-          - name: tool-poisoning-test
+          - name: placeholder
             mcp:
-              host: https://tool-poisoning-test-dev.internal.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io:443/mcp
-
-          # PII Test Server (Azure Container App - Internal, HTTPS 443)
-          - name: pii-test
-            mcp:
-              host: https://mcp-pii-test-server-dev.internal.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io:443/mcp
-
-          # Rug Pull Test Server (Azure Container App - Internal, HTTPS 443)
-          - name: rug-pull-test
-            mcp:
-              host: https://rug-pull-test-dev.internal.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io:443/mcp
+              # Replace with your actual MCP server
+              # This is a placeholder that will return an error
+              host: http://localhost:9999/mcp
+          statefulMode: stateful
+      policies:
+        cors:
+          allowCredentials: false
+          allowHeaders:
+          - '*'
+          allowMethods:
+          - '*'
+          allowOrigins:
+          - '*'
+          exposeHeaders:
+          - mcp-session-id
+        securityGuards:
+          toolPoisoning:
+            enabled: true
+          rugPull:
+            enabled: true
+            scope: session

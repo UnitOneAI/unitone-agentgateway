@@ -2,25 +2,24 @@
 #
 # This compose file orchestrates:
 # - MCP test servers (PII, tool-poisoning, rug-pull) built from testservers/
-# - AgentGateway using pre-built image from ACR (to avoid heavy local Rust builds)
+# - AgentGateway built from source or using pre-built image
 # - Test runner container for CI/CD
-#
-# Test servers are built from source - no external image dependencies for tests.
-# AgentGateway uses ACR image to avoid memory-intensive Rust compilation locally.
 #
 # Usage:
 #   CI/CD mode (fully containerized):
-#     docker-compose up --build --abort-on-container-exit --exit-code-from test-runner
+#     docker compose up --build --abort-on-container-exit --exit-code-from test-runner
 #
 #   Development mode (services only, run tests from host):
-#     docker-compose up -d --build mcp-test-servers agentgateway
-#     GATEWAY_URL=http://localhost:8080 python ../e2e_pii_guard_test.py
+#     docker compose up -d --build mcp-test-servers agentgateway
+#     GATEWAY_URL=http://localhost:8080 python ../e2e_security_guards_test.py
 #
-# Note: For local builds of agentgateway, increase Docker memory to 10GB+
+#   Using pre-built ACR image (set ACR_REGISTRY environment variable):
+#     ACR_REGISTRY=myacr.azurecr.io docker compose up -d
+#
+# Note: Building agentgateway locally requires Docker memory of 10GB+
 
 services:
   # MCP Test Servers - PII (8000), Tool Poisoning (8010), Rug Pull (8020)
-  # Built from testservers/ directory, runs all 3 servers via start-servers.sh
   mcp-test-servers:
     build:
       context: ../../testservers
@@ -34,16 +33,12 @@ services:
       retries: 5
       start_period: 10s
 
-  # AgentGateway - using pre-built ACR image (local Rust build requires 10GB+ RAM)
-  # To build locally instead: docker build -f Dockerfile.acr -t unitone-agentgateway ../..
-  #
-  # Config options:
-  # - e2e-gateway-config.yaml: Full config with security guards (requires security-guards image)
-  # - e2e-gateway-config-basic.yaml: Basic config without security guards (works with any image)
+  # AgentGateway
+  # By default uses ACR image if ACR_REGISTRY is set, otherwise builds from source
   agentgateway:
-    image: agwimages.azurecr.io/unitone-agentgateway:latest
+    image: ${ACR_REGISTRY:-agwimages.azurecr.io}/unitone-agentgateway:${IMAGE_TAG:-latest}
     volumes:
-      - ./configs/e2e-gateway-config-passthrough.yaml:/app/config.yaml:ro
+      - ./configs/e2e-gateway-config.yaml:/app/config.yaml:ro
     ports:
       - "8080:8080"
     depends_on:

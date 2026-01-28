@@ -1,363 +1,281 @@
 # UnitOne AgentGateway
 
-UnitOne-branded deployment wrapper for [agentgateway](https://github.com/UnitOneAI/agentgateway).
+Production-ready Azure deployment of [AgentGateway](https://github.com/agentgateway/agentgateway) with MCP Security Guards.
 
-## Overview
+## What is AgentGateway?
 
-This wrapper repository contains UnitOne-specific configurations, branding, and deployment automation for agentgateway. It uses a git submodule pattern to separate UnitOne customizations from the core agentgateway project.
+AgentGateway is an API gateway for AI agents that provides:
 
-**Key Benefits:**
-- Clear separation between generic and company-specific code
-- Easy syncing with upstream agentgateway updates
-- Simplified deployment workflows for UnitOne infrastructure
-- Prepares main agentgateway repo for future open source contribution
+- **MCP Protocol Support** - Route and proxy Model Context Protocol (MCP) requests
+- **Security Guards** - Protect against tool poisoning, rug pulls, and PII leakage
+- **Multi-tenant Routing** - Single gateway for multiple MCP servers
+- **Web UI** - Visual dashboard for monitoring and configuration
 
-## Repository Structure
+## What This Repo Adds
 
-```
-unitone-agentgateway/          # This repository (wrapper)
-├── agentgateway/              # Git submodule → core agentgateway
-│   ├── src/                   # Rust source code
-│   ├── ui/                    # Next.js UI application
-│   └── Cargo.toml             # Rust project
-├── .github/workflows/         # GitHub Actions CI/CD
-│   └── azure-deploy.yml       # Automated Azure deployment
-├── Dockerfile.acr             # Azure Container Registry build
-├── Makefile                   # Build/deploy automation
-├── docs/                      # UnitOne-specific documentation
-│   ├── DEPLOYMENT.md          # Deployment automation guide
-│   ├── EASY_AUTH_DEPLOYMENT.md # OAuth configuration
-│   ├── UNITONE_BRANDING_CHANGES.md # UI branding changes
-│   └── UNITONE_USER_MENU_FEATURE.md # User menu feature
-└── README.md                  # This file
-```
+This wrapper provides one-click Azure deployment:
 
-**Sibling Repository** (separate repo):
-```
-terraform/                     # Infrastructure as Code (sibling repo)
-├── environments/
-│   ├── dev/agentgateway/
-│   ├── staging/agentgateway/
-│   └── prod/agentgateway/
-└── modules/
-    └── azure/agentgateway/
-```
+- **Interactive Setup** - `./setup.sh` guides you through configuration
+- **Easy Auth Integration** - OAuth with Microsoft, Google, GitHub
+- **Security Guards** - Pre-configured tool poisoning, rug pull, and PII protection
+- **Terraform Infrastructure** - Production-ready Azure Container Apps deployment
+- **E2E Testing** - Validate security guards locally before deploying
 
 ## Quick Start
 
 ### Prerequisites
 
-- **Git** with submodules support
-- **Azure CLI** (`az`) configured with UnitOne subscription
-- **Docker** (for building images)
-- **Rust toolchain** (optional, for local builds)
-- **Node.js** (optional, for UI development)
+- [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli) with active subscription
+- [Terraform](https://www.terraform.io/downloads) >= 1.5.0
+- [Docker](https://www.docker.com/get-started) (for local testing)
+- Git
 
-### 1. Clone with Submodules
+### 1. Clone the Repository
 
 ```bash
-# Clone the wrapper repository with agentgateway submodule
 git clone --recursive https://github.com/UnitOneAI/unitone-agentgateway.git
 cd unitone-agentgateway
-
-# If already cloned, initialize submodules
-git submodule update --init --recursive
 ```
 
-### 2. Deploy to Development
-
-**Fastest Method: Fast Build (4-7 minutes)**
-
-For active development, use the VM-based fast build system:
+### 2. Run Interactive Setup
 
 ```bash
-# Build and deploy to dev (4-7 minutes vs 15-25 minutes traditional)
-./scripts/fast-build.sh dev
-
-# Or to staging/prod
-./scripts/fast-build.sh staging
-./scripts/fast-build.sh prod
+./setup.sh
 ```
 
-See [FAST_BUILD.md](docs/FAST_BUILD.md) for complete documentation on the fast build system.
+The setup wizard will prompt you for:
+- **Azure region and resource group**
+- **OAuth credentials** (Microsoft/Google/GitHub) for Easy Auth
+- **CI/CD settings** (optional GitHub integration)
 
-**Alternative: GitHub Actions (Automatic)**
+Your configuration is saved to `terraform/terraform.tfvars`.
 
-Push to main branch triggers automatic deployment to dev:
+### 3. Deploy to Azure
 
 ```bash
-# Push to main branch triggers automatic deployment to dev
-git push origin main
+cd terraform
+terraform init
+terraform apply
 ```
 
-**Alternative: Manual ACR Build (15-20 minutes)**
+### 4. Build and Push the Image
 
+Choose one of three build methods:
+
+**Option A: ACR Cloud Build** (no local Docker needed)
 ```bash
-# Build Docker image in Azure Container Registry
-az acr build \
-  --registry unitoneagwdevacr \
-  --image unitone-agentgateway:latest \
-  --file Dockerfile.acr \
-  --platform linux/amd64 \
-  .
-
-# Deploy to Azure Container Apps
-az containerapp update \
-  --name unitone-agw-dev-app \
-  --resource-group mcp-gateway-dev-rg \
-  --image unitoneagwdevacr.azurecr.io/unitone-agentgateway:latest
+ACR_NAME=$(terraform output -raw acr_name)
+cd ..
+az acr build --registry $ACR_NAME --image unitone-agentgateway:latest -f Dockerfile.acr .
 ```
 
-### 3. Verify Deployment
-
+**Option B: VM-Based Build** (fastest iteration, requires Docker)
 ```bash
-# Check deployment status
-az containerapp show \
-  --name unitone-agentgateway \
-  --resource-group mcp-gateway-dev-rg \
-  --query "{Status:properties.provisioningState, URL:properties.configuration.ingress.fqdn}"
+# On your build VM or local machine with Docker
+./scripts/build-on-vm.sh --acr-name $ACR_NAME
 
-# Access the UI
-open https://unitone-agentgateway.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io/ui
+# Build and deploy in one command
+./scripts/build-on-vm.sh --acr-name $ACR_NAME --deploy --resource-group my-rg --app-name my-app
 ```
 
-## Development Workflow
+**Option C: ACR Tasks** (automatic builds on git push)
+```bash
+# Configure during setup.sh or add to terraform.tfvars:
+github_repo_url = "https://github.com/YOUR_ORG/unitone-agentgateway.git"
+github_pat      = "ghp_xxxxxxxxxxxx"
+```
 
-### Updating the Agentgateway Submodule
-
-When upstream agentgateway releases new features:
+### 5. Access Your Gateway
 
 ```bash
-cd unitone-agentgateway
+cd terraform
+terraform output ui_url
+# Opens: https://your-app.azurecontainerapps.io/ui
+```
 
-# Navigate to submodule
+## Local E2E Testing
+
+Test security guards locally before deploying:
+
+```bash
+# Run full test suite
+./deploy.sh
+
+# Or step by step:
+./deploy.sh --skip-tests    # Start services only
+./deploy.sh --stop          # Stop services
+```
+
+This runs tests for:
+- **Tool Poisoning Guard** - Blocks malicious tool descriptions
+- **Rug Pull Guard** - Detects runtime tool changes
+- **PII Guard** - Blocks sensitive data exposure
+
+## Authentication
+
+UnitOne AgentGateway supports multiple authentication methods:
+
+### OAuth (Easy Auth) - For Users
+
+| Provider | Setup Guide |
+|----------|-------------|
+| Microsoft (Azure AD) | [Azure Portal](https://portal.azure.com) → Azure AD → App registrations |
+| Google | [Google Cloud Console](https://console.cloud.google.com) → APIs & Services → Credentials |
+| GitHub | [GitHub Settings](https://github.com/settings/developers) → OAuth Apps |
+
+### Client Certificates (mTLS) - For Services
+
+For service-to-service authentication:
+
+| Mode | Use Case |
+|------|----------|
+| `ignore` | Public access, OAuth only |
+| `accept` | Accept certs if provided |
+| `require` | All requests must have valid cert |
+
+The `./setup.sh` wizard will guide you through both OAuth and mTLS configuration.
+
+See [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md) for detailed setup instructions.
+
+## Security Guards
+
+| Guard | Purpose | Default |
+|-------|---------|---------|
+| `toolPoisoning` | Block malicious tool descriptions | Enabled |
+| `rugPull` | Detect runtime tool changes | Enabled |
+| `pii` | Block PII in responses | Configurable |
+
+See [docs/SECURITY_GUARDS.md](docs/SECURITY_GUARDS.md) for configuration details.
+
+## Repository Structure
+
+```
+unitone-agentgateway/
+├── setup.sh                   # Interactive setup wizard
+├── deploy.sh                  # Local E2E testing
+├── agentgateway/              # Git submodule (core gateway)
+├── terraform/
+│   ├── main.tf                # Azure infrastructure
+│   ├── variables.tf           # Configuration options
+│   └── README.md              # Terraform docs
+├── tests/
+│   ├── docker/                # Docker-based E2E tests
+│   └── e2e_*.py               # Test scripts
+├── testservers/               # Mock MCP servers for testing
+├── examples/
+│   └── config.yaml            # Example gateway config
+└── docs/
+    ├── AUTHENTICATION.md      # OAuth setup guide
+    ├── SECURITY_GUARDS.md     # Security guard docs
+    └── CONFIG_HOT_RELOAD.md   # Runtime config updates
+```
+
+## Configuration
+
+### Gateway Config (examples/config.yaml)
+
+```yaml
+binds:
+- port: 8080
+  listeners:
+  - hostname: "*"
+    routes:
+    - name: my-mcp-server
+      matches:
+      - path:
+          pathPrefix: /mcp
+      backends:
+      - mcp:
+          targets:
+          - name: backend
+            mcp:
+              host: http://your-mcp-server:3000/mcp
+          statefulMode: stateful
+      policies:
+        securityGuards:
+          toolPoisoning:
+            enabled: true
+          rugPull:
+            enabled: true
+```
+
+### Terraform Variables
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `environment` | dev / staging / prod | Yes |
+| `resource_group_name` | Azure resource group | Yes |
+| `location` | Azure region | No (default: eastus2) |
+| `configure_auth` | Enable Easy Auth | No (default: false) |
+| `microsoft_client_id` | Azure AD OAuth | No |
+| `google_client_id` | Google OAuth | No |
+| `github_client_id` | GitHub OAuth | No |
+
+See [terraform/README.md](terraform/README.md) for all options.
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Azure Container Apps                     │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │                 UnitOne AgentGateway                 │    │
+│  │  ┌──────────────────────────────────────────────┐   │    │
+│  │  │              Security Guards                  │   │    │
+│  │  │  ┌─────────┐ ┌─────────┐ ┌─────────────────┐ │   │    │
+│  │  │  │ Tool    │ │ Rug     │ │ PII Detection   │ │   │    │
+│  │  │  │Poisoning│ │ Pull    │ │                 │ │   │    │
+│  │  │  └────┬────┘ └────┬────┘ └────────┬────────┘ │   │    │
+│  │  │       └───────────┼───────────────┘          │   │    │
+│  │  └───────────────────┼──────────────────────────┘   │    │
+│  │                      ▼                               │    │
+│  │  ┌──────────────────────────────────────────────┐   │    │
+│  │  │              MCP Route Handlers               │   │    │
+│  │  │  /mcp/server-a → Backend A                   │   │    │
+│  │  │  /mcp/server-b → Backend B                   │   │    │
+│  │  └──────────────────────────────────────────────┘   │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                              │                               │
+│  ┌───────────────────────────┼───────────────────────────┐  │
+│  │         Azure Easy Auth   │   (OAuth)                 │  │
+│  │  Microsoft | Google | GitHub                          │  │
+│  └───────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                               │
+                               ▼
+                 ┌──────────────────────────┐
+                 │    Your MCP Servers      │
+                 └──────────────────────────┘
+```
+
+## Development
+
+### Update Submodule
+
+```bash
 cd agentgateway
-
-# Fetch latest changes
 git fetch origin
-git checkout origin/feature/mcp-security-guards  # Using feature branch with MCP security
-
-# Return to wrapper repo and commit update
+git checkout origin/main
 cd ..
 git add agentgateway
-git commit -m "Update agentgateway submodule to latest version"
-git push origin main  # Triggers automatic deployment
+git commit -m "Update agentgateway submodule"
 ```
 
-See [DEPLOYMENT.md](docs/DEPLOYMENT.md) for detailed submodule workflow documentation.
-
-### Making UI Customizations
-
-UnitOne branding customizations are applied at build time. See [UNITONE_BRANDING_CHANGES.md](docs/UNITONE_BRANDING_CHANGES.md) for details on:
-- Logo and color scheme
-- Theme configuration
-- Font customization
-
-## CI/CD and Deployment
-
-### Primary CI/CD: GitHub Actions (ACTIVE)
-
-The automated deployment workflow (`.github/workflows/azure-deploy.yml`) triggers on:
-
-| Event | Environment | Action |
-|-------|-------------|--------|
-| Push to `main` | Development | Build + Deploy to dev |
-| Manual dispatch | Any (dev/staging/prod) | Build + Deploy to selected environment |
-
-**Key Features:**
-- Automatic submodule initialization (`submodules: 'recursive'`)
-- Docker build using `az acr build`
-- Multi-tag strategy (commit SHA, timestamp, `latest`)
-- Deployment verification and health checks
-
-### Alternative CI/CD: ACR Tasks (OPTIONAL)
-
-An Azure-native CI/CD alternative is available but not currently deployed. ACR Tasks can provide:
-- Automated builds on git push to `main` branch
-- Automatic rebuilds on base image updates (security patches)
-- Azure-native CI/CD without GitHub Actions dependency
-
-**Current Status:** GitHub Actions is the primary and recommended CI/CD approach.
-
-For a detailed comparison of both approaches and when to use each, see [CICD_OPTIONS.md](docs/CICD_OPTIONS.md)
-
-## Available Commands
-
-### Using Makefile (if sibling terraform repo is checked out)
+### Build Locally
 
 ```bash
-make build              # Build agentgateway with UnitOne branding
-make deploy-dev         # Deploy to dev environment (requires terraform)
-make test               # Run E2E tests
-make clean              # Clean build artifacts
-make update-submodule   # Update agentgateway to latest
+# Using Makefile
+make build
+
+# Or directly
+docker build -f Dockerfile.acr -t unitone-agentgateway:local .
 ```
-
-### Using Azure CLI Directly
-
-```bash
-# Build image
-az acr build --registry agwimages --image unitone-agentgateway:latest --file Dockerfile.acr --platform linux/amd64 .
-
-# Deploy
-az containerapp update --name unitone-agentgateway --resource-group mcp-gateway-dev-rg --image agwimages.azurecr.io/unitone-agentgateway:latest
-
-# View logs
-az containerapp logs show --name unitone-agentgateway --resource-group mcp-gateway-dev-rg --follow
-
-# Check revisions
-az containerapp revision list --name unitone-agentgateway --resource-group mcp-gateway-dev-rg
-```
-
-## What's UnitOne-Specific
-
-This wrapper repository contains:
-
-### Deployment Configuration
-- `.github/workflows/azure-deploy.yml` - Automated CI/CD to Azure
-- `Dockerfile.acr` - Azure Container Registry optimized build
-- `Makefile` - Build and deployment automation
-
-### UI Customizations (Applied to Submodule)
-- UnitOne brand colors (blue #3b82f6 vs purple)
-- Dark sidebar theme (#0f172a)
-- UnitOne logo and branding assets
-- Inter font instead of Geist
-- User menu with OAuth integration
-
-### Documentation
-- Deployment automation guides
-- Azure Easy Auth OAuth setup
-- Branding change documentation
-- Developer workflows
-
-## Infrastructure
-
-Azure Container Apps deployment in **East US 2**:
-
-| Resource | Name | Purpose |
-|----------|------|---------|
-| Resource Group | `mcp-gateway-dev-rg` | Development environment |
-| Container Registry | `agwimages` | Docker image storage |
-| Container App | `unitone-agentgateway` | Running application |
-| URL | `unitone-agentgateway.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io` | Public endpoint |
-
-**OAuth Providers:**
-- Microsoft (Azure AD) - Client ID: `4b497d98-cb3a-400e-9374-0e23d57dd480`
-- Google OAuth 2.0 - Client ID: `919355621898-us1vie0rv5mqaff752hhqb9espne87ug.apps.googleusercontent.com`
-
-See [EASY_AUTH_DEPLOYMENT.md](docs/EASY_AUTH_DEPLOYMENT.md) for OAuth configuration details.
-
-## Monitoring
-
-### Health Checks
-
-```bash
-# Application health
-curl https://unitone-agentgateway.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io/health
-
-# MCP endpoint
-curl https://unitone-agentgateway.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io/mcp/github
-
-# OAuth user info
-curl https://unitone-agentgateway.whitecliff-a0c9f0f7.eastus2.azurecontainerapps.io/.auth/me
-```
-
-### Logs
-
-```bash
-# Stream logs
-az containerapp logs show \
-  --name unitone-agentgateway \
-  --resource-group mcp-gateway-dev-rg \
-  --follow
-
-# Check specific revision
-az containerapp revision list \
-  --name unitone-agentgateway \
-  --resource-group mcp-gateway-dev-rg \
-  --query "[].{Name:name, Active:properties.active, Created:properties.createdTime, Image:properties.template.containers[0].image}"
-```
-
-## Troubleshooting
-
-### Submodule Not Initialized
-
-```bash
-git submodule update --init --recursive
-```
-
-### Build Fails
-
-```bash
-# Check for errors in the build logs
-az acr task logs --registry agwimages --follow
-
-# Verify Dockerfile.acr exists
-ls -la Dockerfile.acr
-```
-
-### Deployment Fails
-
-```bash
-# Check Container App logs
-az containerapp logs show --name unitone-agentgateway --resource-group mcp-gateway-dev-rg --tail 100
-
-# Check Container App status
-az containerapp show --name unitone-agentgateway --resource-group mcp-gateway-dev-rg \
-  --query "{Provisioning:properties.provisioningState, Running:properties.runningStatus}"
-```
-
-### OAuth Issues
-
-See [EASY_AUTH_DEPLOYMENT.md](docs/EASY_AUTH_DEPLOYMENT.md) for OAuth troubleshooting.
-
-## Security
-
-### Secrets Management
-- OAuth credentials: Azure Container Apps secrets
-- API keys: Azure Key Vault
-- Never commit secrets to git
-
-### Access Control
-- Azure RBAC for resource access
-- GitHub team permissions for repository access
-- OAuth authentication required for UI
-
-## Contributing
-
-### Core Agentgateway Changes
-Contribute to the main [agentgateway repository](https://github.com/UnitOneAI/agentgateway), then update the submodule here.
-
-### UnitOne-Specific Changes
-1. Create a branch in this repository
-2. Make changes to wrapper files (not submodule)
-3. Test in dev environment
-4. Create PR for review
-5. Merge triggers automatic deployment
-
-## Documentation
-
-- **[DEPLOYMENT.md](docs/DEPLOYMENT.md)** - Complete deployment automation guide with submodule workflow
-- **[EASY_AUTH_DEPLOYMENT.md](docs/EASY_AUTH_DEPLOYMENT.md)** - OAuth configuration for Microsoft and Google
-- **[UNITONE_BRANDING_CHANGES.md](docs/UNITONE_BRANDING_CHANGES.md)** - UI customization details
-- **[UNITONE_USER_MENU_FEATURE.md](docs/UNITONE_USER_MENU_FEATURE.md)** - User menu implementation
 
 ## License
 
-The core agentgateway is licensed under Apache 2.0.
-
-This wrapper repository contains UnitOne proprietary configurations and customizations.
+Apache License 2.0 - see [LICENSE](LICENSE).
 
 ## Support
 
-For issues or questions:
-1. Check documentation in `docs/` directory
-2. Review [GitHub Actions workflow runs](https://github.com/UnitOneAI/unitone-agentgateway/actions)
-3. Contact DevOps team
-4. Escalate to on-call if production issue
-
----
-
-**Last Updated:** January 2026
-**Maintained By:** UnitOne DevOps Team
+- [GitHub Issues](https://github.com/UnitOneAI/unitone-agentgateway/issues)
+- [AgentGateway Documentation](https://github.com/agentgateway/agentgateway)

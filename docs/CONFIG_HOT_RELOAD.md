@@ -9,50 +9,43 @@ AgentGateway supports hot-reloading of configuration without container restarts.
 │  Admin       │ ──────────► │  Azure Files    │ ◄──────────► │  AgentGateway Container     │
 │  (CLI/Portal)│             │  config.yaml    │    SMB       │                             │
 └──────────────┘             └─────────────────┘              │  /app/mounted-config/       │
-                                    │                         │           │                 │
-                                    │ file change             │           ▼                 │
-                                    ▼                         │  ┌─────────────────────┐   │
-                             ┌─────────────────┐              │  │  File Watcher       │   │
-                             │  Event detected │ ────────────►│  │  (250ms debounce)   │   │
-                             └─────────────────┘              │  └──────────┬──────────┘   │
-                                                              │             │              │
-                                                              │             ▼              │
-                                                              │  ┌─────────────────────┐   │
-                                                              │  │  reload_config()    │   │
-                                                              │  │  - security guards  │   │
-                                                              │  │  - routes/backends  │   │
-                                                              │  └─────────────────────┘   │
-                                                              └─────────────────────────────┘
+                                   │                         │           │                 │
+                                   │ file change             │           ▼                 │
+                                   ▼                         │  ┌─────────────────────┐   │
+                            ┌─────────────────┐              │  │  File Watcher       │   │
+                            │  Event detected │ ────────────►│  │  (250ms debounce)   │   │
+                            └─────────────────┘              │  └──────────┬──────────┘   │
+                                                             │             │              │
+                                                             │             ▼              │
+                                                             │  ┌─────────────────────┐   │
+                                                             │  │  reload_config()    │   │
+                                                             │  │  - security guards  │   │
+                                                             │  │  - routes/backends  │   │
+                                                             │  └─────────────────────┘   │
+                                                             └─────────────────────────────┘
 ```
 
-## Method 1: CLI Script (Recommended)
+## Prerequisites
 
-The easiest way to update config:
+Enable config mounting in Terraform:
 
-```bash
-# Update dev environment with azure-config.yaml
-./scripts/update-config.sh dev
-
-# Update with a custom config file
-./scripts/update-config.sh dev ./my-config.yaml
-
-# Update staging/prod
-./scripts/update-config.sh staging ./staging-config.yaml
-./scripts/update-config.sh prod ./prod-config.yaml
+```hcl
+enable_config_mount = true
+config_file_path    = "./config.yaml"  # Initial config
 ```
 
-The script will:
-1. Validate YAML syntax
-2. Upload to Azure Files
-3. AgentGateway auto-reloads (no restart needed)
+This creates:
+- Azure Storage Account
+- File Share named `agentgateway-config`
+- Volume mount at `/app/mounted-config/`
 
-## Method 2: Azure CLI
+## Updating Configuration
+
+### Method 1: Azure CLI
 
 ```bash
-# Set variables
-ENVIRONMENT="dev"
-STORAGE_ACCOUNT="unitoneagwdevcfg"
-SHARE_NAME="agentgateway-config"
+# Get your storage account name from Terraform output
+STORAGE_ACCOUNT=$(cd terraform && terraform output -raw config_storage_account)
 
 # Get storage key
 STORAGE_KEY=$(az storage account keys list \
@@ -63,67 +56,40 @@ STORAGE_KEY=$(az storage account keys list \
 az storage file upload \
     --account-name $STORAGE_ACCOUNT \
     --account-key $STORAGE_KEY \
-    --share-name $SHARE_NAME \
-    --source ./azure-config.yaml \
+    --share-name agentgateway-config \
+    --source ./config.yaml \
     --path config.yaml
 ```
 
-## Method 3: Azure Portal
+### Method 2: Azure Portal
 
-### Step 1: Navigate to Storage Account
 1. Go to [Azure Portal](https://portal.azure.com)
-2. Search for **Storage accounts**
-3. Select the storage account:
-   - Dev: `unitoneagwdevcfg`
-   - Staging: `unitoneagwstagingcfg`
-   - Prod: `unitoneagwprodcfg`
+2. Navigate to your Storage Account
+3. Click **Data storage** → **File shares**
+4. Select `agentgateway-config`
+5. Click **Upload** or click on `config.yaml` → **Edit**
+6. Make changes and save
 
-### Step 2: Open File Share
-1. In the left menu, click **Data storage** → **File shares**
-2. Click on `agentgateway-config`
+### Method 3: Terraform Output Command
 
-### Step 3: Upload/Edit Config
-**To upload a new file:**
-1. Click **Upload** in the toolbar
-2. Select your config file
-3. Set **Upload to folder** to `/` (root)
-4. Check **Overwrite if files already exist**
-5. Click **Upload**
-
-**To edit directly in portal:**
-1. Click on `config.yaml`
-2. Click **Edit** in the toolbar
-3. Make your changes
-4. Click **Save**
-
-### Step 4: Verify Reload
-Check container logs to confirm reload:
 ```bash
-az containerapp logs show \
-    --name unitone-agw-dev-app \
-    --resource-group mcp-gateway-dev-rg \
-    --follow
+# Terraform provides a ready-to-use command
+cd terraform
+terraform output config_update_command
+# Copy and run the output command
 ```
 
-Look for:
-```
-Config file changed, reloading...
-Config reloaded successfully
-```
+## What Gets Hot-Reloaded
 
-## Storage Account Names by Environment
-
-| Environment | Storage Account      | File Share            |
-|-------------|---------------------|----------------------|
-| dev         | `unitoneagwdevcfg`  | `agentgateway-config` |
-| staging     | `unitoneagwstagingcfg` | `agentgateway-config` |
-| prod        | `unitoneagwprodcfg` | `agentgateway-config` |
+The following are updated without restart:
+- Security guards (tool poisoning, PII, rug pull)
+- MCP backend targets
+- Routes and path matching
+- CORS policies
+- Backend configurations
 
 ## Config File Format
 
-The config file is YAML format. See `azure-config.yaml` for the full schema.
-
-Key sections:
 ```yaml
 binds:
   - port: 8080
@@ -141,45 +107,51 @@ binds:
                     - id: tool-poisoning-detector
                       enabled: true
                       type: tool_poisoning
-                      # ... guard config
                   targets:
                     - name: my-server
                       mcp:
                         host: https://my-mcp-server.com/mcp
 ```
 
-## What Gets Hot-Reloaded
+See `examples/config.yaml` for a complete example.
 
-The following are updated without restart:
-- ✅ Security guards (tool poisoning, PII, rug pull)
-- ✅ MCP backend targets
-- ✅ Routes and path matching
-- ✅ CORS policies
-- ✅ Backend configurations
+## Verifying Reload
+
+Check container logs for reload confirmation:
+
+```bash
+# Get app name from Terraform
+APP_NAME=$(cd terraform && terraform output -raw container_app_name)
+RG_NAME=$(cd terraform && terraform output -raw resource_group_name)
+
+az containerapp logs show \
+    --name $APP_NAME \
+    --resource-group $RG_NAME \
+    --follow
+```
+
+Look for:
+```
+Config file changed, reloading...
+Config reloaded successfully
+```
 
 ## Troubleshooting
 
 ### Config not reloading
-1. Check if file was uploaded correctly:
+
+1. Verify file was uploaded:
    ```bash
-   az storage file list --account-name unitoneagwdevcfg --share-name agentgateway-config
+   az storage file list \
+       --account-name $STORAGE_ACCOUNT \
+       --share-name agentgateway-config
    ```
-2. Check container logs for errors:
-   ```bash
-   az containerapp logs show --name unitone-agw-dev-app --resource-group mcp-gateway-dev-rg
-   ```
+
+2. Check container logs for errors
 
 ### Invalid YAML
-The script validates YAML before upload. If uploading manually, validate first:
+
+Validate before uploading:
 ```bash
 python3 -c "import yaml; yaml.safe_load(open('config.yaml'))"
-```
-
-### Permission denied
-Ensure you have Storage Blob Data Contributor role on the storage account:
-```bash
-az role assignment create \
-    --assignee $(az ad signed-in-user show --query id -o tsv) \
-    --role "Storage Blob Data Contributor" \
-    --scope /subscriptions/<sub-id>/resourceGroups/mcp-gateway-dev-rg/providers/Microsoft.Storage/storageAccounts/unitoneagwdevcfg
 ```

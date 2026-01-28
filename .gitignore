@@ -227,3 +227,4 @@ tests/.env.test
 # Local configuration overrides
 **/local-config.yaml
 **/local-config.yml
+terraform/terraform.tfvars

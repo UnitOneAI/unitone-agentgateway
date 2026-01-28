@@ -1,0 +1,108 @@
+# AgentGateway Configuration Example
+#
+# This is a complete example configuration for AgentGateway with
+# security guards enabled. Customize this for your deployment.
+#
+# Configuration reference: https://github.com/agentgateway/agentgateway
+
+binds:
+- port: 8080
+  listeners:
+  - hostname: "*"
+    routes:
+    # UI Dashboard
+    - name: ui-route
+      matches:
+      - path:
+          pathPrefix: /ui
+      backends:
+      - host: 127.0.0.1:15000
+
+    # Admin API
+    - name: admin-api-route
+      matches:
+      - path:
+          pathPrefix: /config
+      backends:
+      - host: 127.0.0.1:15000
+
+    # Example MCP Route with Security Guards
+    - name: my-mcp-server
+      matches:
+      - path:
+          pathPrefix: /mcp/my-server
+      backends:
+      - mcp:
+          targets:
+          - name: my-backend
+            mcp:
+              # Replace with your MCP server URL
+              host: http://localhost:3000/mcp
+          statefulMode: stateful
+      policies:
+        # CORS configuration (adjust for your domain)
+        cors:
+          allowCredentials: false
+          allowHeaders:
+          - '*'
+          allowMethods:
+          - '*'
+          allowOrigins:
+          - '*'
+          exposeHeaders:
+          - mcp-session-id
+
+        # Security Guards Configuration
+        securityGuards:
+          # Tool Poisoning Guard
+          # Blocks tools with suspicious/malicious descriptions
+          toolPoisoning:
+            enabled: true
+
+          # Rug Pull Guard
+          # Detects when tools change after initial handshake
+          rugPull:
+            enabled: true
+            # Options: "session" (per-session baseline) or "global" (shared baseline)
+            scope: session
+
+          # PII Guard (optional)
+          # Blocks responses containing personally identifiable information
+          # pii:
+          #   enabled: true
+          #   # Configure which PII types to detect
+          #   types:
+          #   - email
+          #   - phone
+          #   - ssn
+          #   - credit_card
+
+    # Example: Multiple MCP servers on different routes
+    - name: another-mcp-server
+      matches:
+      - path:
+          pathPrefix: /mcp/tools
+      backends:
+      - mcp:
+          targets:
+          - name: tools-backend
+            mcp:
+              host: http://localhost:3001/mcp
+          statefulMode: stateful
+      policies:
+        cors:
+          allowCredentials: false
+          allowHeaders:
+          - '*'
+          allowMethods:
+          - '*'
+          allowOrigins:
+          - '*'
+          exposeHeaders:
+          - mcp-session-id
+        securityGuards:
+          toolPoisoning:
+            enabled: true
+          rugPull:
+            enabled: true
+            scope: global  # Use global scope for shared tool validation

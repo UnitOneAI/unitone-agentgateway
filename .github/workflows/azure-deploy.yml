@@ -1,3 +1,15 @@
+# UnitOne AgentGateway - Azure Deployment Workflow
+#
+# This workflow:
+# 1. Runs E2E tests on push/PR
+# 2. Builds and deploys to Azure Container Apps
+#
+# Required GitHub Secrets:
+# - AZURE_CREDENTIALS: Azure service principal credentials (JSON)
+# - ACR_NAME: Your Azure Container Registry name (e.g., myacr)
+# - RESOURCE_GROUP: Your Azure resource group name
+# - CONTAINER_APP_NAME: Your Container App name
+
 name: Azure Deployment
 
 on:
@@ -18,23 +30,14 @@ on:
           - dev
           - staging
           - prod
-      image_tag:
-        description: 'Docker image tag (optional, defaults to commit SHA)'
-        required: false
-        type: string
       run_e2e_tests:
         description: 'Run E2E tests before deployment'
         type: boolean
         default: true
 
-env:
-  ACR_REGISTRY: agwimages.azurecr.io
-  IMAGE_NAME: unitone-agentgateway
-
 jobs:
   e2e-tests:
     runs-on: ubuntu-latest
-    # Run tests: always on push/PR, optional on manual dispatch
     if: >
       github.event_name != 'workflow_dispatch' ||
       inputs.run_e2e_tests == true
@@ -45,7 +48,15 @@ jobs:
         with:
           submodules: 'recursive'
 
-      # No Azure login needed - all images built from source
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to ACR
+        run: |
+          az acr login --name ${{ secrets.ACR_NAME }}
+
       - name: Run E2E Tests
         run: |
           docker compose -f tests/docker/docker-compose.yaml up \
@@ -59,7 +70,6 @@ jobs:
 
   build-and-deploy:
     runs-on: ubuntu-latest
-    # Wait for tests if they ran, otherwise proceed directly
     needs: [e2e-tests]
     if: always() && (needs.e2e-tests.result == 'success' || needs.e2e-tests.result == 'skipped')
 
@@ -75,102 +85,52 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             ENV="${{ inputs.environment }}"
-            if [ -n "${{ inputs.image_tag }}" ]; then
-              TAG="${{ inputs.image_tag }}"
-            else
-              TAG="${{ github.sha }}"
-            fi
           elif [ "${{ github.event_name }}" = "push" ]; then
             ENV="dev"
-            TAG="${{ github.sha }}"
           else
-            # Pull request - build only, no deploy
             ENV="none"
-            TAG="pr-${{ github.event.pull_request.number }}"
           fi
+
+          TAG="${{ github.sha }}"
+          SHORT_SHA=$(echo ${TAG} | cut -c1-7)
 
           echo "environment=${ENV}" >> $GITHUB_OUTPUT
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
-          echo "short_sha=$(echo ${TAG} | cut -c1-7)" >> $GITHUB_OUTPUT
+          echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
 
       - name: Azure Login
+        if: steps.config.outputs.environment != 'none'
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Build and push Docker image to ACR
+        if: steps.config.outputs.environment != 'none'
         run: |
-          # Build using az acr build (this handles the Docker build in Azure)
           az acr build \
-            --registry agwimages \
-            --image ${{ env.IMAGE_NAME }}:${{ steps.config.outputs.short_sha }} \
-            --image ${{ env.IMAGE_NAME }}:latest \
+            --registry ${{ secrets.ACR_NAME }} \
+            --image unitone-agentgateway:${{ steps.config.outputs.short_sha }} \
+            --image unitone-agentgateway:latest \
             --file Dockerfile.acr \
             --platform linux/amd64 \
             .
 
-      - name: Deploy to Azure Container App (dev)
-        if: steps.config.outputs.environment == 'dev'
-        run: |
-          az containerapp update \
-            --name unitone-agentgateway \
-            --resource-group mcp-gateway-dev-rg \
-            --image ${{ env.ACR_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.config.outputs.short_sha }}
-
-      - name: Deploy to Azure Container App (staging)
-        if: steps.config.outputs.environment == 'staging'
-        run: |
-          az containerapp update \
-            --name unitone-agentgateway \
-            --resource-group mcp-gateway-staging-rg \
-            --image ${{ env.ACR_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.config.outputs.short_sha }}
-
-      - name: Deploy to Azure Container App (prod)
-        if: steps.config.outputs.environment == 'prod'
-        run: |
-          az containerapp update \
-            --name unitone-agentgateway \
-            --resource-group mcp-gateway-prod-rg \
-            --image ${{ env.ACR_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.config.outputs.short_sha }}
-
-      - name: Get deployment URL
+      - name: Deploy to Azure Container App
         if: steps.config.outputs.environment != 'none'
-        id: get_url
         run: |
-          if [ "${{ steps.config.outputs.environment }}" = "dev" ]; then
-            RG="mcp-gateway-dev-rg"
-          elif [ "${{ steps.config.outputs.environment }}" = "staging" ]; then
-            RG="mcp-gateway-staging-rg"
-          else
-            RG="mcp-gateway-prod-rg"
-          fi
-
-          URL=$(az containerapp show \
-            --name unitone-agentgateway \
-            --resource-group ${RG} \
-            --query properties.configuration.ingress.fqdn \
-            -o tsv)
-
-          echo "url=https://${URL}" >> $GITHUB_OUTPUT
+          az containerapp update \
+            --name ${{ secrets.CONTAINER_APP_NAME }} \
+            --resource-group ${{ secrets.RESOURCE_GROUP }} \
+            --image ${{ secrets.ACR_NAME }}.azurecr.io/unitone-agentgateway:${{ steps.config.outputs.short_sha }}
 
       - name: Verify deployment
         if: steps.config.outputs.environment != 'none'
         run: |
-          if [ "${{ steps.config.outputs.environment }}" = "dev" ]; then
-            RG="mcp-gateway-dev-rg"
-          elif [ "${{ steps.config.outputs.environment }}" = "staging" ]; then
-            RG="mcp-gateway-staging-rg"
-          else
-            RG="mcp-gateway-prod-rg"
-          fi
-
-          # Wait for deployment to stabilize
           sleep 30
 
-          # Check health
           STATUS=$(az containerapp show \
-            --name unitone-agentgateway \
-            --resource-group ${RG} \
+            --name ${{ secrets.CONTAINER_APP_NAME }} \
+            --resource-group ${{ secrets.RESOURCE_GROUP }} \
             --query properties.runningStatus \
             -o tsv)
 
@@ -179,6 +139,12 @@ jobs:
             exit 1
           fi
 
+          URL=$(az containerapp show \
+            --name ${{ secrets.CONTAINER_APP_NAME }} \
+            --resource-group ${{ secrets.RESOURCE_GROUP }} \
+            --query properties.configuration.ingress.fqdn \
+            -o tsv)
+
           echo "Deployment successful!"
-          echo "UI URL: ${{ steps.get_url.outputs.url }}"
-          echo "MCP Endpoint: ${{ steps.get_url.outputs.url }}/mcp"
+          echo "UI URL: https://${URL}/ui"
+          echo "MCP Endpoint: https://${URL}/mcp"
