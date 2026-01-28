@@ -113,7 +113,7 @@ az login
 az acr login --name agwimages
 
 # Run full test suite (17 tests)
-./deploy.sh --e2e
+./deploy.sh
 
 # Stop services when done
 ./deploy.sh --stop

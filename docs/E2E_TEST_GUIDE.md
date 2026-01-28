@@ -55,7 +55,7 @@ az acr login --name agwimages
 ### Step 3: Run E2E Tests
 
 ```bash
-./deploy.sh --e2e
+./deploy.sh
 ```
 
 This command will:
