@@ -21,6 +21,16 @@ This wrapper provides one-click Azure deployment:
 - **Terraform Infrastructure** - Production-ready Azure Container Apps deployment
 - **E2E Testing** - Validate security guards locally before deploying
 
+## Documentation
+
+| Guide | Description |
+|-------|-------------|
+| [E2E Test Guide](docs/E2E_TEST_GUIDE.md) | Run security guard tests locally (5 min) |
+| [Production Setup](docs/PRODUCTION_SETUP.md) | Deploy to Azure step-by-step |
+| [Authentication](docs/AUTHENTICATION.md) | Configure OAuth and mTLS |
+| [Security Guards](docs/SECURITY_GUARDS.md) | Configure protection policies |
+| [Build Options](docs/BUILD_OPTIONS.md) | ACR vs VM build methods |
+
 ## Quick Start
 
 ### Prerequisites
@@ -98,18 +108,22 @@ terraform output ui_url
 Test security guards locally before deploying:
 
 ```bash
-# Run full test suite
-./deploy.sh
+# Login to ACR (one-time)
+az login
+az acr login --name agwimages
 
-# Or step by step:
-./deploy.sh --skip-tests    # Start services only
-./deploy.sh --stop          # Stop services
+# Run full test suite (17 tests)
+./deploy.sh --e2e
+
+# Stop services when done
+./deploy.sh --stop
 ```
 
-This runs tests for:
-- **Tool Poisoning Guard** - Blocks malicious tool descriptions
-- **Rug Pull Guard** - Detects runtime tool changes
-- **PII Guard** - Blocks sensitive data exposure
+This validates:
+- **Tool Poisoning Guard** - Blocks malicious tool descriptions (3 tests)
+- **Rug Pull Guard** - Detects runtime tool changes (14 tests)
+
+See [docs/E2E_TEST_GUIDE.md](docs/E2E_TEST_GUIDE.md) for detailed test documentation.
 
 ## Authentication
 
@@ -158,17 +172,26 @@ unitone-agentgateway/
 │   ├── main.tf                # Azure infrastructure
 │   ├── variables.tf           # Configuration options
 │   └── README.md              # Terraform docs
+├── scripts/
+│   ├── build-on-vm.sh         # VM-based Docker builds
+│   └── setup-build-vm.sh      # Setup build VM
 ├── tests/
 │   ├── docker/                # Docker-based E2E tests
+│   ├── configs/               # Test configurations
 │   └── e2e_*.py               # Test scripts
 ├── testservers/               # Mock MCP servers for testing
 ├── examples/
 │   └── config.yaml            # Example gateway config
 └── docs/
+    ├── E2E_TEST_GUIDE.md      # How to run E2E tests
+    ├── PRODUCTION_SETUP.md    # Full production deployment
     ├── AUTHENTICATION.md      # OAuth setup guide
     ├── SECURITY_GUARDS.md     # Security guard docs
+    ├── BUILD_OPTIONS.md       # Build method comparison
     └── CONFIG_HOT_RELOAD.md   # Runtime config updates
 ```
+
+For detailed production deployment instructions, see [docs/PRODUCTION_SETUP.md](docs/PRODUCTION_SETUP.md).
 
 ## Configuration
 
