@@ -1,0 +1,150 @@
+# UnitOne AgentGateway - Azure Deployment Workflow
+#
+# This workflow:
+# 1. Runs E2E tests on push/PR
+# 2. Builds and deploys to Azure Container Apps
+#
+# Required GitHub Secrets:
+# - AZURE_CREDENTIALS: Azure service principal credentials (JSON)
+# - ACR_NAME: Your Azure Container Registry name (e.g., myacr)
+# - RESOURCE_GROUP: Your Azure resource group name
+# - CONTAINER_APP_NAME: Your Container App name
+
+name: Azure Deployment
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      run_e2e_tests:
+        description: 'Run E2E tests before deployment'
+        type: boolean
+        default: true
+
+jobs:
+  e2e-tests:
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name != 'workflow_dispatch' ||
+      inputs.run_e2e_tests == true
+
+    steps:
+      - name: Checkout repository with submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to ACR
+        run: |
+          az acr login --name ${{ secrets.ACR_NAME }}
+
+      - name: Run E2E Tests
+        run: |
+          docker compose -f tests/docker/docker-compose.yaml up \
+            --build \
+            --abort-on-container-exit \
+            --exit-code-from test-runner
+
+      - name: Cleanup
+        if: always()
+        run: docker compose -f tests/docker/docker-compose.yaml down -v
+
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    needs: [e2e-tests]
+    if: always() && (needs.e2e-tests.result == 'success' || needs.e2e-tests.result == 'skipped')
+
+    steps:
+      - name: Checkout repository with submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+          fetch-depth: 0
+
+      - name: Determine environment and tag
+        id: config
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            ENV="${{ inputs.environment }}"
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            ENV="dev"
+          else
+            ENV="none"
+          fi
+
+          TAG="${{ github.sha }}"
+          SHORT_SHA=$(echo ${TAG} | cut -c1-7)
+
+          echo "environment=${ENV}" >> $GITHUB_OUTPUT
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+
+      - name: Azure Login
+        if: steps.config.outputs.environment != 'none'
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Build and push Docker image to ACR
+        if: steps.config.outputs.environment != 'none'
+        run: |
+          az acr build \
+            --registry ${{ secrets.ACR_NAME }} \
+            --image unitone-agentgateway:${{ steps.config.outputs.short_sha }} \
+            --image unitone-agentgateway:latest \
+            --file Dockerfile.acr \
+            --platform linux/amd64 \
+            .
+
+      - name: Deploy to Azure Container App
+        if: steps.config.outputs.environment != 'none'
+        run: |
+          az containerapp update \
+            --name ${{ secrets.CONTAINER_APP_NAME }} \
+            --resource-group ${{ secrets.RESOURCE_GROUP }} \
+            --image ${{ secrets.ACR_NAME }}.azurecr.io/unitone-agentgateway:${{ steps.config.outputs.short_sha }}
+
+      - name: Verify deployment
+        if: steps.config.outputs.environment != 'none'
+        run: |
+          sleep 30
+
+          STATUS=$(az containerapp show \
+            --name ${{ secrets.CONTAINER_APP_NAME }} \
+            --resource-group ${{ secrets.RESOURCE_GROUP }} \
+            --query properties.runningStatus \
+            -o tsv)
+
+          if [ "$STATUS" != "Running" ]; then
+            echo "Deployment failed: status is $STATUS"
+            exit 1
+          fi
+
+          URL=$(az containerapp show \
+            --name ${{ secrets.CONTAINER_APP_NAME }} \
+            --resource-group ${{ secrets.RESOURCE_GROUP }} \
+            --query properties.configuration.ingress.fqdn \
+            -o tsv)
+
+          echo "Deployment successful!"
+          echo "UI URL: https://${URL}/ui"
+          echo "MCP Endpoint: https://${URL}/mcp"

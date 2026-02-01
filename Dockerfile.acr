@@ -1,0 +1,148 @@
+ARG BUILDER=base
+
+FROM docker.io/library/node:23.11.0-bookworm AS node
+
+WORKDIR /app
+
+# Copy base UI from submodule
+COPY agentgateway/ui .
+
+# Apply UnitOne UI customizations (overrides default UI files)
+COPY ui-customizations/ ./
+
+# Verify ui-customizations overlay is applied
+RUN echo "=== Verifying ui-customizations overlay ===" && \
+    head -6 src/app/playground/page.tsx && \
+    grep -q "StreamableHTTPClientTransport" src/app/playground/page.tsx && \
+    echo "✓ Playground uses StreamableHTTPClientTransport" || \
+    (echo "✗ ERROR: Playground still uses SSE transport!" && exit 1) && \
+    echo "=== Verifying logo component override ===" && \
+    cat src/components/agentgateway-logo.tsx && \
+    grep -q "unitone-logo.png" src/components/agentgateway-logo.tsx && \
+    echo "✓ Logo uses UnitOne PNG image" || \
+    (echo "✗ ERROR: Logo component not overridden!" && exit 1) && \
+    echo "=== Verifying logo image exists ===" && \
+    ls -la public/images/unitone-logo.png && \
+    echo "✓ Logo image exists" && \
+    echo "=== Verifying favicon override ===" && \
+    grep -q "1a3a5c" public/favicon.svg && \
+    echo "✓ Favicon uses UnitOne blue color" || \
+    (echo "✗ ERROR: Favicon not overridden!" && exit 1)
+
+RUN npm install && chmod +x node_modules/.bin/*
+
+# Explicitly set NODE_ENV=production to ensure API_URL uses relative paths
+ENV NODE_ENV=production
+RUN npm run build
+
+FROM docker.io/library/rust:1.91.1-trixie AS arm64-sysroot
+FROM docker.io/library/rust:1.91.1-slim-bookworm AS arm64-musl-sysroot
+FROM docker.io/library/rust:1.91.1-slim-bookworm AS amd64-musl-sysroot
+
+FROM docker.io/library/rust:1.91.1-trixie AS base-builder
+
+RUN apt-get update && apt-get -y install clang-17 clang++-17 lld-17
+
+RUN rustup target add aarch64-unknown-linux-musl \
+    x86_64-unknown-linux-musl \
+    aarch64-unknown-linux-gnu \
+    x86_64-unknown-linux-gnu
+
+FROM base-builder AS builder
+ARG TARGETARCH
+ARG BUILDER
+ARG PROFILE=release
+ARG VERSION
+ARG GIT_REVISION
+
+COPY --from=arm64-sysroot /lib /sysroots/arm64/lib/
+COPY --from=arm64-sysroot /usr/include /sysroots/arm64/usr/include/
+COPY --from=arm64-sysroot /usr/lib /sysroots/arm64/usr/lib/
+
+COPY --from=arm64-musl-sysroot /lib /sysroots/arm64-musl/lib/
+COPY --from=arm64-musl-sysroot /usr/include /sysroots/arm64-musl/usr/include/
+COPY --from=arm64-musl-sysroot /usr/lib /sysroots/arm64-musl/usr/lib/
+
+COPY --from=amd64-musl-sysroot /lib /sysroots/amd64-musl/lib/
+COPY --from=amd64-musl-sysroot /usr/include /sysroots/amd64-musl/usr/include/
+COPY --from=amd64-musl-sysroot /usr/lib /sysroots/amd64-musl/usr/lib/
+
+RUN mkdir /build && \
+    if [ "$TARGETARCH" = "arm64" ]; then \
+      if [ "$BUILDER" = "musl" ]; then \
+        echo aarch64-unknown-linux-musl > /build/target && \
+        ln -s /sysroots/arm64-musl /sysroots/current; \
+      else \
+        echo aarch64-unknown-linux-gnu > /build/target && \
+        ln -s /sysroots/arm64 /sysroots/current; \
+      fi; \
+    else \
+      if [ "$BUILDER" = "musl" ]; then \
+        echo x86_64-unknown-linux-musl > /build/target && \
+        ln -s /sysroots/amd64-musl /sysroots/current; \
+      else \
+        echo x86_64-unknown-linux-gnu > /build/target && \
+        ln -s / /sysroots/current; \
+      fi; \
+    fi && \
+    echo "Building $(cat /build/target)"
+
+WORKDIR /app
+
+COPY agentgateway/Makefile agentgateway/Cargo.toml agentgateway/Cargo.lock ./
+COPY agentgateway/.cargo ./.cargo
+COPY agentgateway/cargo-docker.config.toml ./
+RUN cat cargo-docker.config.toml >> .cargo/config.toml
+
+COPY agentgateway/crates ./crates
+COPY agentgateway/common ./common
+COPY --from=node /app/out ./ui/out
+
+ENV CC=clang
+ENV CXX=clang++
+ENV LDFLAGS="-fuse-ld=lld-17"
+ENV CFLAGS="--sysroot=/sysroots/current"
+
+RUN cargo fetch --locked
+RUN sh -c 'export VERSION="${VERSION}" && \
+    export GIT_REVISION="${GIT_REVISION}" && \
+    if [ "$BUILDER" = "musl" ]; then \
+      export CFLAGS="${CFLAGS} -static"; \
+    fi && \
+    cargo build --features ui --target "$(cat /build/target)" --profile ${PROFILE} || exit 1 && \
+    mkdir /out && \
+    mv /app/target/$(cat /build/target)/${PROFILE}/agentgateway /out'
+
+# Version check disabled for VM builds (git metadata not synced)
+# RUN if [ "$TARGETARCH" = "amd64" ]; then \
+#       /out/agentgateway --version && \
+#       if /out/agentgateway --version | grep -q '"unknown"'; then \
+#         exit 1; \
+#       fi; \
+#     fi
+
+FROM docker.io/library/debian:trixie-slim AS runner
+
+# Install runtime dependencies (ca-certificates for HTTPS)
+# Using trixie to match build environment's GLIBC version (2.38/2.39)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY --from=builder /out/agentgateway /app/agentgateway
+
+# Copy default config (baked into image)
+COPY azure-config.yaml /app/config.yaml
+
+# Copy entrypoint script that supports mounted config override
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+LABEL org.opencontainers.image.source=https://github.com/agentgateway/agentgateway
+LABEL org.opencontainers.image.description="Agentgateway is an open source project that is built on AI-native protocols to connect, secure, and observe agent-to-agent and agent-to-tool communication across any agent framework and environment."
+
+# Use entrypoint script that checks for mounted config at /app/mounted-config.yaml
+# If mounted config exists, it takes priority over the default /app/config.yaml
+ENTRYPOINT ["/app/entrypoint.sh"]

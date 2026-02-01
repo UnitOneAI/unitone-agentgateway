@@ -1,0 +1,80 @@
+# UnitOne AgentGateway - Default Configuration
+#
+# This config is used when deploying to Azure.
+# Test server URLs are configured at deploy time via deploy-test-servers.sh
+#
+# For local testing, use: tests/docker/docker-compose.yaml
+
+binds:
+- port: 8080
+  listeners:
+  - hostname: "*"
+    name: default
+    protocol: HTTP
+    routes:
+    # UI Dashboard
+    - name: ui-route
+      matches:
+      - path:
+          pathPrefix: /ui
+      backends:
+      - host: 127.0.0.1:15000
+
+    # Admin API
+    - name: admin-api-route
+      matches:
+      - path:
+          pathPrefix: /config
+      backends:
+      - host: 127.0.0.1:15000
+
+    - name: admin-route
+      matches:
+      - path:
+          pathPrefix: /admin
+      backends:
+      - host: 127.0.0.1:15000
+
+    # MCP route - configure your MCP servers here
+    # Example with security guards enabled:
+    - name: mcp-route
+      matches:
+      - path:
+          pathPrefix: /mcp
+      backends:
+      - mcp:
+          targets:
+          # Add your MCP server targets here
+          # - name: my-server
+          #   mcp:
+          #     host: https://your-mcp-server.example.com/mcp
+          statefulMode: stateful
+          securityGuards:
+          - id: tool-poisoning
+            type: tool_poisoning
+            enabled: true
+            runs_on:
+            - response
+          - id: rug-pull
+            type: rug_pull
+            enabled: true
+            runs_on:
+            - response
+            risk_threshold: 5
+          - id: pii-detection
+            type: pii
+            enabled: true
+            runs_on:
+            - response
+            action: mask
+      policies:
+        cors:
+          allowCredentials: false
+          allowHeaders:
+          - '*'
+          allowMethods:
+          - '*'
+          allowOrigins:
+          - '*'
+          exposeHeaders:
+          - mcp-session-id

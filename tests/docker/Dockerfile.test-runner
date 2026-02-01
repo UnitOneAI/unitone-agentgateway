@@ -1,0 +1,29 @@
+# Test Runner Container for E2E Tests
+#
+# This container runs the E2E test suite against the AgentGateway.
+# It's designed to be used in CI/CD pipelines for automated testing.
+#
+# Usage:
+#   docker-compose up --abort-on-container-exit --exit-code-from test-runner
+
+FROM python:3.12-slim
+
+WORKDIR /tests
+
+# Install curl for healthchecks and debugging
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+
+# Install test dependencies
+COPY docker/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy test files
+COPY *.py ./
+
+# Environment variables
+ENV GATEWAY_URL=http://agentgateway:8080
+ENV PYTHONUNBUFFERED=1
+
+# Default: run security guard tests with streamable transport
+# Note: SSE transport requires SSE-compatible MCP servers (attacks-test uses Streamable HTTP)
+CMD ["python", "e2e_security_guards_test.py", "--transport", "streamable"]
