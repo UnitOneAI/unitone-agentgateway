@@ -1,0 +1,57 @@
+# Benchmark config with WASM guard for comparison with native guards
+binds:
+- port: 8090
+  listeners:
+  - hostname: "*"
+    routes:
+    # Native PII guard route (for comparison baseline)
+    - name: native-pii
+      matches:
+      - path:
+          pathPrefix: /native-pii
+      backends:
+      - mcp:
+          securityGuards:
+          - id: pii-guard
+            type: pii
+            runs_on: [response]
+            detect: [email, credit_card, ssn, phone_number]
+            action: mask
+          targets:
+          - name: pii-test
+            mcp:
+              host: http://172.18.0.2:8000/mcp
+          statefulMode: stateful
+
+    # WASM guard route
+    - name: wasm-guard
+      matches:
+      - path:
+          pathPrefix: /wasm-guard
+      backends:
+      - mcp:
+          securityGuards:
+          - id: server-spoofing
+            type: wasm
+            runs_on: [response]
+            module_path: /Users/surindersingh/source_code/unitone-agentgateway/guards/python-guards/server-spoofing-guard-wasm/server_spoofing_guard.wasm
+            config:
+              block_unknown_servers: false
+          targets:
+          - name: pii-test
+            mcp:
+              host: http://172.18.0.2:8000/mcp
+          statefulMode: stateful
+
+    # No guard route (baseline)
+    - name: no-guard
+      matches:
+      - path:
+          pathPrefix: /no-guard
+      backends:
+      - mcp:
+          targets:
+          - name: pii-test
+            mcp:
+              host: http://172.18.0.2:8000/mcp
+          statefulMode: stateful

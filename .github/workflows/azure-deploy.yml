@@ -1,0 +1,162 @@
+# UnitOne AgentGateway - Azure Deployment Workflow
+#
+# This workflow:
+# 1. Runs local tests on push/PR (no Azure required)
+# 2. Builds and deploys to Azure Container Apps (requires secrets)
+#
+# Required GitHub Secrets (for deployment):
+# - AZURE_CREDENTIALS: Azure service principal credentials (JSON)
+# - ACR_NAME: Your Azure Container Registry name (e.g., myacr)
+# - RESOURCE_GROUP: Your Azure resource group name
+# - CONTAINER_APP_NAME: Your Container App name
+
+name: CI/CD
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+jobs:
+  # Basic validation - always runs, no secrets needed
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository with submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: Validate Dockerfile
+        run: |
+          echo "Checking Dockerfile.acr exists..."
+          test -f Dockerfile.acr
+          echo "✓ Dockerfile.acr found"
+
+      - name: Validate config files
+        run: |
+          echo "Checking config files..."
+          test -f azure-config.yaml
+          echo "✓ azure-config.yaml found"
+          test -f terraform/main.tf
+          echo "✓ terraform/main.tf found"
+
+      - name: Check submodule
+        run: |
+          echo "Checking agentgateway submodule..."
+          test -f agentgateway/Cargo.toml
+          echo "✓ Submodule initialized correctly"
+
+  # Azure deployment - only runs if secrets are configured
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    needs: [validate]
+    # Only run on push to main or workflow_dispatch, and only if secrets exist
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Check if Azure secrets are configured
+        id: check-secrets
+        run: |
+          if [ -n "${{ secrets.AZURE_CREDENTIALS }}" ] && [ -n "${{ secrets.ACR_NAME }}" ]; then
+            echo "has_secrets=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_secrets=false" >> $GITHUB_OUTPUT
+            echo "⚠️ Azure secrets not configured - skipping deployment"
+            echo "To enable deployment, configure these repository secrets:"
+            echo "  - AZURE_CREDENTIALS"
+            echo "  - ACR_NAME"
+            echo "  - RESOURCE_GROUP"
+            echo "  - CONTAINER_APP_NAME"
+          fi
+
+      - name: Checkout repository with submodules
+        if: steps.check-secrets.outputs.has_secrets == 'true'
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+          fetch-depth: 0
+
+      - name: Determine environment and tag
+        if: steps.check-secrets.outputs.has_secrets == 'true'
+        id: config
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            ENV="${{ inputs.environment }}"
+          else
+            ENV="dev"
+          fi
+
+          TAG="${{ github.sha }}"
+          SHORT_SHA=$(echo ${TAG} | cut -c1-7)
+
+          echo "environment=${ENV}" >> $GITHUB_OUTPUT
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+
+      - name: Azure Login
+        if: steps.check-secrets.outputs.has_secrets == 'true'
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Build and push Docker image to ACR
+        if: steps.check-secrets.outputs.has_secrets == 'true'
+        run: |
+          az acr build \
+            --registry ${{ secrets.ACR_NAME }} \
+            --image unitone-agentgateway:${{ steps.config.outputs.short_sha }} \
+            --image unitone-agentgateway:latest \
+            --file Dockerfile.acr \
+            --platform linux/amd64 \
+            .
+
+      - name: Deploy to Azure Container App
+        if: steps.check-secrets.outputs.has_secrets == 'true'
+        run: |
+          az containerapp update \
+            --name ${{ secrets.CONTAINER_APP_NAME }} \
+            --resource-group ${{ secrets.RESOURCE_GROUP }} \
+            --image ${{ secrets.ACR_NAME }}.azurecr.io/unitone-agentgateway:${{ steps.config.outputs.short_sha }}
+
+      - name: Verify deployment
+        if: steps.check-secrets.outputs.has_secrets == 'true'
+        run: |
+          sleep 30
+
+          STATUS=$(az containerapp show \
+            --name ${{ secrets.CONTAINER_APP_NAME }} \
+            --resource-group ${{ secrets.RESOURCE_GROUP }} \
+            --query properties.runningStatus \
+            -o tsv)
+
+          if [ "$STATUS" != "Running" ]; then
+            echo "Deployment failed: status is $STATUS"
+            exit 1
+          fi
+
+          URL=$(az containerapp show \
+            --name ${{ secrets.CONTAINER_APP_NAME }} \
+            --resource-group ${{ secrets.RESOURCE_GROUP }} \
+            --query properties.configuration.ingress.fqdn \
+            -o tsv)
+
+          echo "Deployment successful!"
+          echo "UI URL: https://${URL}/ui"
+          echo "MCP Endpoint: https://${URL}/mcp"

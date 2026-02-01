@@ -1,0 +1,32 @@
+# Unified MCP Test Servers Dockerfile
+# Supports running PII test server or Tool Poisoning test server based on SERVER_TYPE env var
+#
+# Usage:
+#   SERVER_TYPE=pii          -> runs mcp-test-server-fastmcp on MCP_PORT (default 8000)
+#   SERVER_TYPE=tool-poison  -> runs tool-poisoning-test on MCP_PORT (default 9000)
+#   SERVER_TYPE=all          -> runs both servers (PII on 8000, Tool Poison on 8010)
+
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Install dependencies
+COPY pyproject.toml .
+COPY src/ src/
+
+RUN pip install --no-cache-dir .
+
+# Copy startup script
+COPY start-server.sh .
+RUN chmod +x start-server.sh
+
+# Environment variables for configuration
+ENV MCP_HOST=0.0.0.0
+ENV MCP_PORT=8000
+ENV SERVER_TYPE=pii
+
+# Expose all possible ports
+EXPOSE 8000 9000 8010 8020
+
+# Run the appropriate server based on SERVER_TYPE
+CMD ["./start-server.sh"]

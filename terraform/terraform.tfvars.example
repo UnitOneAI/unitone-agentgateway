@@ -1,0 +1,59 @@
+# UnitOne AgentGateway - Terraform Variables Example
+#
+# Copy this file to terraform.tfvars and customize:
+#   cp terraform.tfvars.example terraform.tfvars
+#
+# Required variables must be set before running terraform.
+
+# ==============================================================================
+# Required Variables
+# ==============================================================================
+
+# Environment name: dev, staging, or prod
+environment = "dev"
+
+# Azure resource group name (must be globally unique)
+resource_group_name = "my-agw-dev-rg"
+
+# ==============================================================================
+# Optional Variables (uncomment to customize)
+# ==============================================================================
+
+# Azure region (default: eastus2)
+# location = "eastus2"
+
+# Base name prefix for resources (default: agw)
+# base_name = "agw"
+
+# Docker image tag (default: latest)
+# image_tag = "latest"
+
+# Use placeholder image for initial deployment before building real image
+# use_placeholder_image = true
+
+# Enable sticky sessions for MCP session affinity (default: true)
+# enable_sticky_sessions = true
+
+# ==============================================================================
+# Configuration Hot-Reload (optional)
+# ==============================================================================
+
+# Mount config from Azure Files for runtime updates
+# enable_config_mount = true
+# config_file_path = "../azure-config.yaml"
+
+# ==============================================================================
+# Authentication (optional)
+# ==============================================================================
+
+# Enable Azure Easy Auth
+# configure_auth = false
+# allow_anonymous_access = true
+
+# OAuth credentials (if configure_auth = true)
+# microsoft_client_id = ""
+# microsoft_client_secret = ""
+# google_client_id = ""
+# google_client_secret = ""
+# github_client_id = ""
+# github_client_secret = ""

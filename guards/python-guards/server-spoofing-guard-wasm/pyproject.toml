@@ -1,0 +1,22 @@
+[project]
+name = "server-spoofing-guard-wasm"
+version = "0.1.0"
+description = "Server Spoofing Guard compiled to WASM using componentize-py"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+
+[project.optional-dependencies]
+dev = [
+    "componentize-py>=0.16.0",
+    "wasmtime>=27.0.0",
+    "pytest>=7.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

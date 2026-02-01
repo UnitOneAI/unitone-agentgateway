@@ -1,0 +1,62 @@
+# Security Guards Demo Configuration
+# This configuration demonstrates MCP security guards in action
+# Use with local test servers (see tests/docker/docker-compose.yaml)
+
+binds:
+  - port: 8080
+    listeners:
+      - routes:
+          - backends:
+              - mcp:
+                  # Security guards configuration
+                  securityGuards:
+                    # Tool Poisoning Detection Guard
+                    - id: tool-poisoning-detector
+                      enabled: true
+                      priority: 100
+                      failure_mode: fail_closed
+                      timeout_ms: 50
+                      runs_on:
+                        - response
+                      type: tool_poisoning
+                      strict_mode: true
+                      custom_patterns:
+                        - "(?i)SYSTEM:\\s*override"
+                        - "(?i)ignore\\s+all\\s+previous\\s+instructions"
+                        - "(?i)\\[HIDDEN\\]"
+                        - "(?i)dangerous\\s+instructions"
+                      scan_fields:
+                        - name
+                        - description
+                        - input_schema
+                      alert_threshold: 1
+
+                    # PII Detection Guard
+                    - id: pii-detector
+                      enabled: true
+                      priority: 50
+                      failure_mode: fail_closed
+                      timeout_ms: 100
+                      runs_on:
+                        - response
+                      type: pii
+                      pii_types:
+                        - email_address
+                        - phone_number
+                        - social_security_number
+                        - credit_card_number
+                      confidence_threshold: 0.80
+                      scan_fields:
+                        - description
+                        - input_schema
+                      action: block
+
+                  # MCP server targets (localhost for testing)
+                  targets:
+                    - name: tool-poisoning-test
+                      mcp:
+                        host: http://localhost:8010/mcp
+
+                    - name: pii-test-server
+                      mcp:
+                        host: http://localhost:8000/mcp

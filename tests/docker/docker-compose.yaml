@@ -1,0 +1,75 @@
+# Docker Compose for E2E Testing
+#
+# This compose file orchestrates:
+# - MCP test servers (PII, tool-poisoning, rug-pull) built from testservers/
+# - AgentGateway built from source or using pre-built image
+# - Test runner container for CI/CD
+#
+# Usage:
+#   CI/CD mode (fully containerized):
+#     docker compose up --build --abort-on-container-exit --exit-code-from test-runner
+#
+#   Development mode (services only, run tests from host):
+#     docker compose up -d --build mcp-test-servers agentgateway
+#     GATEWAY_URL=http://localhost:8080 python ../e2e_security_guards_test.py
+#
+#   Using pre-built ACR image (set ACR_REGISTRY environment variable):
+#     ACR_REGISTRY=myacr.azurecr.io docker compose up -d
+#
+# Note: Building agentgateway locally requires Docker memory of 10GB+
+
+services:
+  # MCP Test Servers - PII (8000), Tool Poisoning (8010), Rug Pull (8020)
+  mcp-test-servers:
+    build:
+      context: ../../testservers
+      dockerfile: Dockerfile
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import socket; s=socket.socket(); s.settimeout(2); s.connect(('localhost',8000)); s.close()\""]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+
+  # AgentGateway
+  # Requires ACR_REGISTRY env var to be set (e.g., ACR_REGISTRY=myacr.azurecr.io)
+  # Run via ./agw test which sets this automatically from terraform outputs
+  agentgateway:
+    image: ${ACR_REGISTRY}/unitone-agentgateway:${IMAGE_TAG:-latest}
+    volumes:
+      - ./configs/e2e-gateway-config.yaml:/app/config.yaml:ro
+    ports:
+      - "8080:8080"
+    depends_on:
+      mcp-test-servers:
+        condition: service_healthy
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/15021"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # Test Runner (for CI/CD mode)
+  test-runner:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.test-runner
+    environment:
+      - GATEWAY_URL=http://agentgateway:8080
+      - MCP_TRANSPORT=streamable
+    depends_on:
+      agentgateway:
+        condition: service_healthy
+    networks:
+      - test-network
+    volumes:
+      - ..:/tests:ro
+
+networks:
+  test-network:
+    driver: bridge

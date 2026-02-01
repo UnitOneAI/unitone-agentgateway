@@ -1,0 +1,5 @@
+"""Predefined PII test datasets."""
+
+from .datasets import PERSONAL_FIXTURES, FINANCIAL_FIXTURES, MIXED_FIXTURES
+
+__all__ = ["PERSONAL_FIXTURES", "FINANCIAL_FIXTURES", "MIXED_FIXTURES"]

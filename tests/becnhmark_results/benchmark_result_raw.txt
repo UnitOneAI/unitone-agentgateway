@@ -1,0 +1,272 @@
+Enabled pii guard
+PS python tests/benchmark.py --route /pii-test --requests 20 --concurrency 10 --operation tools/call --tool-name generate_large_pii_text
+============================================================
+AgentGateway Benchmark
+============================================================
+Gateway:     http://localhost:8080
+Route:       /pii-test
+Operation:   tools/call
+Transport:   streamable
+Requests:    20
+Concurrency: 10
+Warmup:      10
+------------------------------------------------------------
+  Initializing 10 client connections...
+  Client pool ready.
+  Warmup: 10 requests...
+  Benchmarking: 20 requests...
+
+============================================================
+AgentGateway Benchmark Results
+============================================================
+Gateway:       http://localhost:8080
+Route:         /pii-test
+Operation:     tools/call
+Transport:     streamable
+Requests:      20
+Concurrency:   10
+------------------------------------------------------------
+LATENCY (ms)
+  Min:         3513.27
+  Avg:         18911.26
+  Stddev:      3649.8
+  P50:         19716.98
+  P95:         20241.73
+  P99:         20284.75
+------------------------------------------------------------
+THROUGHPUT
+  Total time:  39.73s
+  Requests/s:  0.5
+------------------------------------------------------------
+RELIABILITY
+  Success:     20/20 (100.0%)
+  Failed:      0/20 (0.0%)
+============================================================
+
+Disabled pii guard
+PS python tests/benchmark.py --route /pii-test --requests 20 --concurrency 10 --operation tools/call --tool-name generate_large_pii_text
+============================================================
+AgentGateway Benchmark
+============================================================
+Gateway:     http://localhost:8080
+Route:       /pii-test
+Operation:   tools/call
+Transport:   streamable
+Requests:    20
+Concurrency: 10
+Warmup:      10
+------------------------------------------------------------
+  Initializing 10 client connections...
+  Client pool ready.
+  Warmup: 10 requests...
+  Benchmarking: 20 requests...
+
+============================================================
+AgentGateway Benchmark Results
+============================================================
+Gateway:       http://localhost:8080
+Route:         /pii-test
+Operation:     tools/call
+Transport:     streamable
+Requests:      20
+Concurrency:   10
+------------------------------------------------------------
+LATENCY (ms)
+  Min:         16035.94
+  Max:         16437.46
+  Avg:         16200.63
+  Stddev:      142.07
+  P50:         16177.86
+  P95:         16427.8
+  P99:         16435.53
+------------------------------------------------------------
+THROUGHPUT
+  Total time:  32.57s
+  Requests/s:  0.61
+------------------------------------------------------------
+RELIABILITY
+  Success:     20/20 (100.0%)
+  Failed:      0/20 (0.0%)
+============================================================
+
+
+Enabled pii guard
+PS python tests/benchmark.py --route /pii-test --requests 500 --concurrency 10 --operation tools/call --tool-name generate_full_record
+
+============================================================
+AgentGateway Benchmark
+============================================================
+Gateway:     http://localhost:8080
+Route:       /pii-test
+Operation:   tools/call
+Transport:   streamable
+Requests:    500
+Concurrency: 10
+Warmup:      10
+------------------------------------------------------------
+  Initializing 10 client connections...
+  Client pool ready.
+  Warmup: 10 requests...
+  Benchmarking: 500 requests...
+
+============================================================
+AgentGateway Benchmark Results
+============================================================
+Gateway:       http://localhost:8080
+Route:         /pii-test
+Operation:     tools/call
+Transport:     streamable
+Requests:      500
+Concurrency:   10
+------------------------------------------------------------
+LATENCY (ms)
+  Avg:         27.02
+  Stddev:      14.78
+  P50:         25.3
+  P95:         30.6
+  P99:         127.52
+------------------------------------------------------------
+THROUGHPUT
+  Total time:  1.37s
+  Requests/s:  364.05
+------------------------------------------------------------
+RELIABILITY
+  Success:     500/500 (100.0%)
+  Failed:      0/500 (0.0%)
+============================================================
+
+Disabled pii guard
+PS python tests/benchmark.py --route /pii-test --requests 500 --concurrency 10 --operation tools/call --tool-name generate_full_record
+============================================================
+AgentGateway Benchmark
+============================================================
+Gateway:     http://localhost:8080
+Route:       /pii-test
+Operation:   tools/call
+Transport:   streamable
+Requests:    500
+Concurrency: 10
+Warmup:      10
+------------------------------------------------------------
+  Initializing 10 client connections...
+  Client pool ready.
+  Warmup: 10 requests...
+  Benchmarking: 500 requests...
+
+============================================================
+AgentGateway Benchmark Results
+============================================================
+Gateway:       http://localhost:8080
+Route:         /pii-test
+Operation:     tools/call
+Transport:     streamable
+Requests:      500
+Concurrency:   10
+------------------------------------------------------------
+LATENCY (ms)
+  Avg:         24.55
+  Stddev:      3.77
+  P50:         23.95
+  P95:         29.15
+  P99:         42.43
+------------------------------------------------------------
+THROUGHPUT
+  Total time:  1.25s
+  Requests/s:  399.29
+------------------------------------------------------------
+RELIABILITY
+  Success:     500/500 (100.0%)
+  Failed:      0/500 (0.0%)
+============================================================
+
+
+Enabled pii guard
+PS python tests/benchmark.py --route /pii-test --requests 500 --concurrency 10 --operation tools/call --tool-name generate_bulk_pii --tool-args '{\"pii_type\":\"credit_card\",\"count\":150}'
+============================================================
+AgentGateway Benchmark
+============================================================
+Gateway:     http://localhost:8080
+Route:       /pii-test
+Operation:   tools/call
+Transport:   streamable
+Requests:    500
+Concurrency: 10
+Warmup:      10
+------------------------------------------------------------
+  Initializing 10 client connections...
+  Client pool ready.
+  Warmup: 10 requests...
+  Benchmarking: 500 requests...
+
+============================================================
+AgentGateway Benchmark Results
+============================================================
+Gateway:       http://localhost:8080
+Route:         /pii-test
+Operation:     tools/call
+Transport:     streamable
+Requests:      500
+Concurrency:   10
+------------------------------------------------------------
+LATENCY (ms)
+  Min:         13.76
+  Avg:         39.93
+  Stddev:      11.89
+  P50:         43.58
+  P95:         53.57
+  P99:         64.84
+------------------------------------------------------------
+THROUGHPUT
+  Total time:  2.11s
+  Requests/s:  237.21
+------------------------------------------------------------
+RELIABILITY
+  Success:     500/500 (100.0%)
+  Failed:      0/500 (0.0%)
+============================================================
+
+Disabled pii guard
+PS python tests/benchmark.py --route /pii-test --requests 500 --concurrency 10 --operation tools/call --tool-name generate_bulk_pii --tool-args '{\"pii_type\":\"credit_card\",\"count\":150}'
+============================================================
+AgentGateway Benchmark
+============================================================
+Gateway:     http://localhost:8080
+Route:       /pii-test
+Operation:   tools/call
+Transport:   streamable
+Requests:    500
+Concurrency: 10
+Warmup:      10
+------------------------------------------------------------
+  Initializing 10 client connections...
+  Client pool ready.
+  Warmup: 10 requests...
+  Benchmarking: 500 requests...
+
+============================================================
+AgentGateway Benchmark Results
+============================================================
+Gateway:       http://localhost:8080
+Route:         /pii-test
+Operation:     tools/call
+Transport:     streamable
+Requests:      500
+Concurrency:   10
+------------------------------------------------------------
+LATENCY (ms)
+  Min:         9.3
+  Avg:         32.46
+  Stddev:      6.16
+  P50:         31.52
+  P95:         39.1
+  P99:         56.94
+------------------------------------------------------------
+THROUGHPUT
+  Total time:  1.66s
+  Requests/s:  300.4
+------------------------------------------------------------
+RELIABILITY
+  Success:     500/500 (100.0%)
+  Failed:      0/500 (0.0%)
+============================================================
+
