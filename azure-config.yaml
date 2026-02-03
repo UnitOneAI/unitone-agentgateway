@@ -43,8 +43,9 @@ binds:
           pathPrefix: /mcp
       backends:
       - mcp:
-          targets:
-          # Add your MCP server targets here
+          targets: []
+          # Add your MCP server targets here when you have MCP servers to connect to
+          # Example:
           # - name: my-server
           #   mcp:
           #     host: https://your-mcp-server.example.com/mcp
