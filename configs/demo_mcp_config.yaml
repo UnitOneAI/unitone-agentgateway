@@ -1,0 +1,85 @@
+binds:
+- port: 8080
+  listeners:
+  - routes:
+    - matches:
+      - path:
+          pathPrefix: /ui
+      backends:
+      - host: 127.0.0.1:15000
+      name: ui-route
+    - matches:
+      - path:
+          pathPrefix: /config
+      backends:
+      - host: 127.0.0.1:15000
+      name: admin-api-route
+    - hostnames: []
+      matches:
+      - path:
+          pathPrefix: /pii-test
+      backends:
+      - mcp:
+          targets:
+          - name: pii-mcp
+            mcp:
+              host: http://127.0.0.1:8000/mcp
+          statefulMode: stateful
+          securityGuards:
+          - id: pii-guard
+            type: pii
+            enabled: false
+            priority: 100
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - request
+            - response
+            - tool_invoke
+            detect:
+            - email
+            - credit_card
+            action: mask
+            min_score: 0.3
+      name: pii-guard
+      policies:
+        cors:
+          allowCredentials: false
+          allowHeaders:
+          - '*'
+          allowMethods:
+          - '*'
+          allowOrigins:
+          - '*'
+          exposeHeaders:
+          - mcp-session-id
+          maxAge: null
+    - hostnames: []
+      matches:
+      - path:
+          pathPrefix: /poison
+      backends:
+      - mcp:
+          securityGuards:
+          - id: tool-poisoning
+            type: tool_poisoning
+            runs_on:
+            - request
+            - response
+          targets:
+          - name: poison
+            mcp:
+              host: http://127.0.0.1:8010/mcp
+          statefulMode: stateful
+      name: tool-poisoning
+      policies:
+        cors:
+          allowCredentials: false
+          allowHeaders:
+          - '*'
+          allowMethods: []
+          allowOrigins:
+          - '*'
+          exposeHeaders:
+          - mcp-session-id
+          maxAge: null
