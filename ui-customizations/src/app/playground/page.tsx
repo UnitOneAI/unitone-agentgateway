@@ -1462,7 +1462,6 @@ export default function PlaygroundPage() {
             selectedA2aSkillId={a2aState.selectedSkill?.id ?? null}
             onMcpToolSelect={handleMcpToolSelect}
             onA2aSkillSelect={handleA2aSkillSelect}
-            onRefreshMcpTools={refreshMcpTools}
           />
 
           <ActionPanel
