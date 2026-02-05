@@ -109,7 +109,7 @@ RUN sh -c 'export VERSION="${VERSION}" && \
     if [ "$BUILDER" = "musl" ]; then \
       export CFLAGS="${CFLAGS} -static"; \
     fi && \
-    cargo build --features ui,wasm-guards --target "$(cat /build/target)" --profile ${PROFILE} || exit 1 && \
+    cargo build --features ui --target "$(cat /build/target)" --profile ${PROFILE} || exit 1 && \
     mkdir /out && \
     mv /app/target/$(cat /build/target)/${PROFILE}/agentgateway /out'
 
