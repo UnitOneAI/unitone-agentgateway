@@ -249,15 +249,19 @@ export default function PlaygroundPage() {
             const protocol = listener.protocol === ListenerProtocol.HTTPS ? "https" : "http";
             // Use window.location.hostname when listener hostname is not set
             // This ensures the UI connects to the correct domain in deployed environments
-            const hostname = listener.hostname || (typeof window !== 'undefined' ? window.location.hostname : "localhost");
+            const hostname =
+              listener.hostname ||
+              (typeof window !== "undefined" ? window.location.hostname : "localhost");
             const configPort = bind.port;
             // Local dev: browser URL has explicit port (e.g., 127.0.0.1:15000) -> use config port for routes
             // Deployed (Azure): browser URL has no port (standard 80/443) -> use origin (ingress handles routing)
             // Drawback: if Azure exposed non-standard port, this would break (uncommon scenario)
-            const hasExplicitPort = typeof window !== 'undefined' && window.location.port !== '';
+            const hasExplicitPort = typeof window !== "undefined" && window.location.port !== "";
             const baseEndpoint = hasExplicitPort
               ? `${protocol}://${hostname}:${configPort}`
-              : (typeof window !== 'undefined' ? window.location.origin : `${protocol}://${hostname}:${configPort}`);
+              : typeof window !== "undefined"
+                ? window.location.origin
+                : `${protocol}://${hostname}:${configPort}`;
 
             // Generate route path and description with better pattern recognition
             let routePath = "/";
@@ -1093,7 +1097,8 @@ export default function PlaygroundPage() {
                     <span className="font-medium text-sm">Request URL</span>
                   </div>
                   <div className="font-mono text-sm break-all">
-                    {selectedRoute.endpoint}{request.path}
+                    {selectedRoute.endpoint}
+                    {request.path}
                   </div>
                 </div>
 
@@ -1462,6 +1467,7 @@ export default function PlaygroundPage() {
             selectedA2aSkillId={a2aState.selectedSkill?.id ?? null}
             onMcpToolSelect={handleMcpToolSelect}
             onA2aSkillSelect={handleA2aSkillSelect}
+            onRefreshMcpTools={refreshMcpTools}
           />
 
           <ActionPanel
