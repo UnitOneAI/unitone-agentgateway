@@ -36,7 +36,11 @@ binds:
       - host: 127.0.0.1:15000
 
     # MCP route - configure your MCP servers here
-    # Example with security guards enabled:
+    # Security guards protect against tool poisoning, rug pulls, and PII leakage
+    # Research sources:
+    # - https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks
+    # - https://www.practical-devsecops.com/mcp-security-vulnerabilities/
+    # - https://genai.owasp.org/llmrisk/llm01-prompt-injection/
     - name: mcp-route
       matches:
       - path:
@@ -49,23 +53,111 @@ binds:
               host: https://mcp-server-time.fly.dev
           statefulMode: stateful
           securityGuards:
+          # ============================================================
+          # Tool Poisoning Guard - Detects malicious instructions in tool descriptions
+          # Patterns based on OWASP LLM Top 10, Invariant Labs research, and Palo Alto Unit42
+          # ============================================================
           - id: tool-poisoning
             type: tool_poisoning
             enabled: true
+            priority: 10
             runs_on:
+            - tools_list
             - response
+            strict_mode: true
+            alert_threshold: 1
+            scan_fields:
+            - name
+            - description
+            - input_schema
+            custom_patterns:
+            # === Directive Insertion Attacks (89.6% ASR per research) ===
+            - "(?i)<IMPORTANT>.*</IMPORTANT>"
+            - "(?i)<SYSTEM>.*</SYSTEM>"
+            - "(?i)<INSTRUCTION>.*</INSTRUCTION>"
+            - "(?i)\\[IMPORTANT\\]"
+            - "(?i)\\[INSTRUCTION\\]"
+            - "(?i)IMPORTANT:\\s*.{0,50}(must|always|never|do not)"
+            - "(?i)NOTE:\\s*.{0,50}(override|ignore|bypass)"
+            - "(?i)REQUIRED:\\s*.{0,50}(execute|run|call)"
+            # === Base64/Encoding Bypass (76.2% ASR) ===
+            - "(?i)base64[._-]?decode"
+            - "(?i)atob\\s*\\("
+            - "(?i)btoa\\s*\\("
+            - "(?i)from[._-]?base64"
+            - "(?i)decode\\s*\\(\\s*['\"][A-Za-z0-9+/=]{20,}"
+            # === Zero-Width Character Detection ===
+            - "\\u200b"
+            - "\\u200c"
+            - "\\u200d"
+            - "\\u200e"
+            - "\\u200f"
+            - "\\u2060"
+            - "\\ufeff"
+            # === DAN-style Jailbreak Patterns ===
+            - "(?i)DAN\\s*(mode|enabled|activated)"
+            - "(?i)(do|act)\\s+anything\\s+now"
+            - "(?i)jailbreak(ed)?\\s*(mode)?"
+            - "(?i)developer\\s+mode\\s+(enabled|on|activated)"
+            - "(?i)unrestricted\\s+mode"
+            # === Roleplay Manipulation (89.6% ASR) ===
+            - "(?i)from\\s+now\\s+on[,]?\\s+(you|act|pretend|behave)"
+            - "(?i)let'?s\\s+play\\s+a\\s+game"
+            - "(?i)imagine\\s+you\\s+are\\s+(a|an)?\\s*(unrestricted|evil|malicious)"
+            - "(?i)hypothetically[,]?\\s*(if|what|suppose)"
+            - "(?i)in\\s+this\\s+fictional\\s+scenario"
+            # === Logic Trap / Conditional Bypass (81.4% ASR) ===
+            - "(?i)if\\s+you\\s+(were|could|can)\\s+.{0,30}(ignore|bypass|override)"
+            - "(?i)what\\s+if\\s+.{0,30}(no|without)\\s+(restrictions?|rules?|guidelines?)"
+            - "(?i)for\\s+(educational|research|testing)\\s+purposes?\\s+only"
+            # === Instruction Smuggling ===
+            - "(?i)\\]\\]>.*<\\!\\[CDATA\\["
+            - "(?i)<!--.*-->"
+            - "(?i)<script[^>]*>.*</script>"
+            - "(?i)%[0-9a-f]{2}.*execute"
+            # === Prompt Leaking Attempts ===
+            - "(?i)repeat\\s+(back|everything|all)\\s+(above|before|prior)"
+            - "(?i)output\\s+(your|the|all)\\s+(instructions?|prompt|rules?)"
+            - "(?i)tell\\s+me\\s+(your|the)\\s+(system|original)\\s+(prompt|instructions?)"
+            # === Context Manipulation ===
+            - "(?i)end\\s+of\\s+(system|assistant)\\s+(message|prompt)"
+            - "(?i)\\[\\s*end\\s*\\]"
+            - "(?i)---\\s*(system|user|assistant)\\s*---"
+            - "(?i)\\*\\*\\*\\s*(NEW|OVERRIDE|UPDATED)\\s*(INSTRUCTIONS?|RULES?)\\s*\\*\\*\\*"
+
+          # ============================================================
+          # Rug Pull Guard - Detects when tools change after initial handshake
+          # Set threshold to 1 for immediate detection (research recommends strict monitoring)
+          # ============================================================
           - id: rug-pull
             type: rug_pull
             enabled: true
+            priority: 20
             runs_on:
+            - tools_list
             - response
-            risk_threshold: 5
+            risk_threshold: 1
+
+          # ============================================================
+          # PII Guard - Detects and masks personally identifiable information
+          # Covers: email, phone, SSN, credit cards, Canadian SIN, URLs
+          # ============================================================
           - id: pii-detection
             type: pii
             enabled: true
+            priority: 30
             runs_on:
             - response
+            - tool_invoke
+            detect:
+            - email
+            - phone_number
+            - ssn
+            - credit_card
+            - ca_sin
+            - url
             action: mask
+            min_score: 0.5
       policies:
         cors:
           allowCredentials: false
