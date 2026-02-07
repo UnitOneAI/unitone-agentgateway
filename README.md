@@ -18,7 +18,7 @@ AgentGateway is an API gateway for AI agents that provides:
 - [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli) with active subscription
 - [Terraform](https://www.terraform.io/downloads) >= 1.5.0
 - [Docker](https://www.docker.com/get-started) (for local testing)
-- **Contributor role** on an Azure resource group (ask your admin if needed)
+- **Contributor role** on an Azure resource group ([see detailed permissions](docs/PRODUCTION_SETUP.md#required-azure-permissions))
 
 ### 1. Clone and Setup
 

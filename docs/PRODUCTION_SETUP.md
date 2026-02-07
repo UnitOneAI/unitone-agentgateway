@@ -38,6 +38,99 @@ The production deployment consists of:
 | Terraform (v1.0+) | Provision infrastructure |
 | Git | Clone repository |
 
+### Required Azure Permissions
+
+You need specific Azure RBAC roles to deploy and manage AgentGateway. Ask your Azure admin to grant these permissions.
+
+#### Option A: Resource Group Contributor (Recommended)
+
+The simplest approach - get **Contributor** role on a dedicated resource group:
+
+```bash
+# Admin runs this to grant you access
+az role assignment create \
+  --role "Contributor" \
+  --assignee "your-email@company.com" \
+  --scope "/subscriptions/<subscription-id>/resourceGroups/<resource-group-name>"
+```
+
+This single role allows you to:
+- Create/manage Container Apps
+- Build and push images to ACR
+- View logs and metrics
+- Manage storage for config files
+
+#### Option B: Minimal Permissions (Principle of Least Privilege)
+
+If your organization requires granular permissions:
+
+| Role | Scope | Purpose |
+|------|-------|---------|
+| **Contributor** | Resource Group | Create/manage all resources (Container App, ACR, etc.) |
+| **AcrPush** | Container Registry | Build and push container images |
+| **Storage File Data Contributor** | Storage Account | Upload config files to mounted file shares |
+| **Monitoring Reader** | Resource Group | View logs and metrics |
+
+```bash
+# Grant minimal permissions (admin runs these)
+RG="/subscriptions/<sub-id>/resourceGroups/<rg-name>"
+ACR="$RG/providers/Microsoft.ContainerRegistry/registries/<acr-name>"
+STORAGE="$RG/providers/Microsoft.Storage/storageAccounts/<storage-name>"
+
+# Container App management
+az role assignment create --role "Contributor" --assignee "user@company.com" --scope "$RG"
+
+# ACR push (if not using Contributor)
+az role assignment create --role "AcrPush" --assignee "user@company.com" --scope "$ACR"
+
+# Config file uploads
+az role assignment create --role "Storage File Data Contributor" --assignee "user@company.com" --scope "$STORAGE"
+```
+
+#### Option C: Creating New Infrastructure
+
+If you need to create the resource group and all resources from scratch:
+
+| Role | Scope | Purpose |
+|------|-------|---------|
+| **Contributor** | Subscription | Create resource groups and all resources |
+
+Or more restricted:
+
+| Role | Scope | Purpose |
+|------|-------|---------|
+| **Contributor** | Subscription | With condition to only create specific resource types |
+
+```bash
+# Grant subscription-level Contributor (admin runs this)
+az role assignment create \
+  --role "Contributor" \
+  --assignee "user@company.com" \
+  --scope "/subscriptions/<subscription-id>"
+```
+
+#### Verify Your Permissions
+
+```bash
+# Check what roles you have
+az role assignment list --assignee "$(az account show --query user.name -o tsv)" --output table
+
+# Test ACR access
+az acr login --name <acr-name>
+
+# Test Container App access
+az containerapp list --resource-group <rg-name>
+```
+
+#### Common Permission Errors
+
+| Error | Missing Permission | Fix |
+|-------|-------------------|-----|
+| "Authorization failed" on `az acr build` | AcrPush or Contributor | Grant AcrPush on ACR |
+| "Access denied" uploading config | Storage File Data Contributor | Grant on Storage Account |
+| "Forbidden" on `az containerapp update` | Contributor | Grant Contributor on RG |
+| "Cannot create resource group" | Contributor on Subscription | Grant at subscription level |
+
 ### Verify Prerequisites
 
 ```bash
