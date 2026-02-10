@@ -1,36 +1,213 @@
-# Security Guards Test Configuration
-# Use with local test servers (see tests/docker/docker-compose.yaml)
-
 binds:
-  - port: 8080
-    listeners:
-      - routes:
-          - backends:
-              - mcp:
-                  # Security guards configuration
-                  securityGuards:
-                    # PII Detection Guard
-                    - id: pii-detector
-                      enabled: true
-                      priority: 50
-                      failure_mode: fail_closed
-                      timeout_ms: 100
-                      runs_on:
-                        - response
-                      type: pii
-                      pii_types:
-                        - email_address
-                        - phone_number
-                        - social_security_number
-                        - credit_card_number
-                      confidence_threshold: 0.80
-                      scan_fields:
-                        - description
-                        - input_schema
-                      action: block
-
-                  # MCP server targets (localhost for testing)
-                  targets:
-                    - name: pii-test-server
-                      mcp:
-                        host: http://localhost:8000/mcp
+- port: 8080
+  listeners:
+  - routes:
+    - matches:
+      - path:
+          pathPrefix: /pii-test
+      backends:
+      - mcp:
+          securityGuards:
+          - id: pii-mask-guard
+            type: pii
+            runs_on:
+            - response
+            detect:
+            - email
+            - phone_number
+            - ssn
+            - credit_card
+            - ca_sin
+            - url
+            action: mask
+            min_score: 0.3
+          targets:
+          - name: pii-test-server
+            mcp:
+              host: http://localhost:8000/mcp
+      name: pii-test
+    - matches:
+      - path:
+          pathPrefix: /pii-test-reject
+      backends:
+      - mcp:
+          securityGuards:
+          - id: pii-reject-guard
+            type: pii
+            runs_on:
+            - response
+            detect:
+            - email
+            - phone_number
+            - ssn
+            - credit_card
+            - ca_sin
+            - url
+            action: reject
+            min_score: 0.3
+          targets:
+          - name: pii-test-server
+            mcp:
+              host: http://localhost:8000/mcp
+      name: pii-test-reject
+    - matches:
+      - path:
+          pathPrefix: /poison
+      backends:
+      - mcp:
+          securityGuards:
+          - id: tool-poisoning-detector
+            type: tool_poisoning
+            enabled: true
+            priority: 100
+            failure_mode: fail_closed
+            timeout_ms: 50
+            runs_on:
+            - response
+            strict_mode: true
+            custom_patterns:
+            - (?i)SYSTEM:\s*override
+            scan_fields:
+            - name
+            - description
+            - input_schema
+            alert_threshold: 1
+          targets:
+          - name: tool-poisoning-test
+            mcp:
+              host: http://localhost:8010/mcp
+      name: poison
+    - matches:
+      - path:
+          pathPrefix: /rug-pull
+      backends:
+      - mcp:
+          securityGuards:
+          - id: rug-pull-detector
+            type: rug_pull
+            runs_on:
+            - response
+            risk_threshold: 5
+          targets:
+          - name: rug-pull-test
+            mcp:
+              host: http://localhost:8020/mcp
+      name: rug-pull
+    - matches:
+      - path:
+          pathPrefix: /rug-pull-desc
+      backends:
+      - mcp:
+          securityGuards:
+          - id: rug-pull-desc
+            type: rug_pull
+            runs_on:
+            - response
+            risk_threshold: 5
+          targets:
+          - name: rug-pull-desc
+            mcp:
+              host: http://localhost:8020/mcp
+      name: rug-pull-desc
+    - matches:
+      - path:
+          pathPrefix: /rug-pull-schema
+      backends:
+      - mcp:
+          securityGuards:
+          - id: rug-pull-schema
+            type: rug_pull
+            runs_on:
+            - response
+            risk_threshold: 5
+          targets:
+          - name: rug-pull-schema
+            mcp:
+              host: http://localhost:8020/mcp
+      name: rug-pull-schema
+      policies:
+        cors:
+          allowCredentials: true
+          allowHeaders:
+          - mcp-protocol-version
+          - content-type
+          - cache-control
+          - accept
+          - mcp-session-id
+          allowMethods:
+          - GET
+          - POST
+          - OPTIONS
+          allowOrigins:
+          - '*'
+          exposeHeaders:
+          - mcp-session-id
+          maxAge: null
+    - matches:
+      - path:
+          pathPrefix: /rug-pull-remove
+      backends:
+      - mcp:
+          securityGuards:
+          - id: rug-pull-remove
+            type: rug_pull
+            runs_on:
+            - response
+            risk_threshold: 5
+          targets:
+          - name: rug-pull-remove
+            mcp:
+              host: http://localhost:8020/mcp
+      name: rug-pull-remove
+      policies:
+        cors:
+          allowCredentials: true
+          allowHeaders:
+          - mcp-protocol-version
+          - content-type
+          - cache-control
+          - accept
+          - mcp-session-id
+          allowMethods:
+          - GET
+          - POST
+          - OPTIONS
+          allowOrigins:
+          - '*'
+          exposeHeaders:
+          - mcp-session-id
+          maxAge: null
+    - matches:
+      - path:
+          pathPrefix: /rug-pull-add
+      backends:
+      - mcp:
+          securityGuards:
+          - id: rug-pull-add
+            type: rug_pull
+            runs_on:
+            - response
+            risk_threshold: 5
+          targets:
+          - name: rug-pull-add
+            mcp:
+              host: http://localhost:8020/mcp
+      name: rug-pull-add
+      policies:
+        cors:
+          allowCredentials: true
+          allowHeaders:
+          - mcp-protocol-version
+          - content-type
+          - cache-control
+          - accept
+          - mcp-session-id
+          allowMethods:
+          - GET
+          - POST
+          - OPTIONS
+          allowOrigins:
+          - '*'
+          exposeHeaders:
+          - mcp-session-id
+          maxAge: null

@@ -7,6 +7,10 @@
 #   /pii-test  -> mcp-test-servers:8000 (PII test server)
 #   /poison    -> mcp-test-servers:8010 (Tool poisoning test server)
 #   /rug-pull  -> mcp-test-servers:8020 (Rug pull test server)
+#   /rug-pull-desc   -> mcp-test-servers:8020 (Rug pull mode: description)
+#   /rug-pull-schema -> mcp-test-servers:8020 (Rug pull mode: schema)
+#   /rug-pull-remove -> mcp-test-servers:8020 (Rug pull mode: remove)
+#   /rug-pull-add    -> mcp-test-servers:8020 (Rug pull mode: add)
 
 binds:
 - port: 8080
@@ -136,3 +140,72 @@ binds:
           exposeHeaders:
           - mcp-session-id
           maxAge: null
+
+    # Rug pull mode-specific routes (separate target names for isolated baselines)
+    - name: rug-pull-desc
+      matches:
+      - path:
+          pathPrefix: /rug-pull-desc
+      backends:
+      - mcp:
+          securityGuards:
+          - id: rug-pull-desc
+            type: rug_pull
+            runs_on: [response]
+            risk_threshold: 5
+          targets:
+          - name: rug-pull-desc
+            mcp:
+              host: http://mcp-test-servers:8020/mcp
+          statefulMode: stateful
+
+    - name: rug-pull-schema
+      matches:
+      - path:
+          pathPrefix: /rug-pull-schema
+      backends:
+      - mcp:
+          securityGuards:
+          - id: rug-pull-schema
+            type: rug_pull
+            runs_on: [response]
+            risk_threshold: 5
+          targets:
+          - name: rug-pull-schema
+            mcp:
+              host: http://mcp-test-servers:8020/mcp
+          statefulMode: stateful
+
+    - name: rug-pull-remove
+      matches:
+      - path:
+          pathPrefix: /rug-pull-remove
+      backends:
+      - mcp:
+          securityGuards:
+          - id: rug-pull-remove
+            type: rug_pull
+            runs_on: [response]
+            risk_threshold: 5
+          targets:
+          - name: rug-pull-remove
+            mcp:
+              host: http://mcp-test-servers:8020/mcp
+          statefulMode: stateful
+
+    - name: rug-pull-add
+      matches:
+      - path:
+          pathPrefix: /rug-pull-add
+      backends:
+      - mcp:
+          securityGuards:
+          - id: rug-pull-add
+            type: rug_pull
+            runs_on: [response]
+            risk_threshold: 5
+          targets:
+          - name: rug-pull-add
+            mcp:
+              host: http://mcp-test-servers:8020/mcp
+          statefulMode: stateful
