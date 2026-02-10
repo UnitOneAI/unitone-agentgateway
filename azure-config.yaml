@@ -16,7 +16,7 @@ binds:
     - name: root-redirect
       matches:
       - path:
-          pathExact: /
+          exact: /
       policies:
         requestRedirect:
           path:
