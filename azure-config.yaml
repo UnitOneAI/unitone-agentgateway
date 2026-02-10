@@ -12,16 +12,17 @@ binds:
     name: default
     protocol: HTTP
     routes:
-    # Root redirect to UI
+    # Root redirect to UI (rewrite / to /ui)
     - name: root-redirect
       matches:
       - path:
           exact: /
+      backends:
+      - host: 127.0.0.1:15000
       policies:
-        requestRedirect:
+        urlRewrite:
           path:
             full: /ui
-          status: 302
 
     # UI Dashboard
     - name: ui-route
