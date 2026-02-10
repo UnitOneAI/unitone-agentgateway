@@ -43,9 +43,18 @@ class PersonalGenerator(BaseGenerator):
         return {"email": self.faker.email()}
 
     def _generate_phone(self) -> dict[str, Any]:
-        """Generate phone number."""
+        """Generate phone number in valid NANP format: (NXX) NXX-XXXX.
+
+        NANP rules require the first digit of area code and exchange to be
+        2-9 (not 0 or 1).  Random ###-format can produce 0xx exchanges like
+        029 which Presidio's phone recognizer scores below min_score 0.3.
+        """
+        area = f"{self.faker.random_int(2, 9)}{self.faker.numerify('##')}"
+        exchange = f"{self.faker.random_int(2, 9)}{self.faker.numerify('##')}"
+        subscriber = self.faker.numerify("####")
+        phone = f"({area}) {exchange}-{subscriber}"
         return {
-            "phone": self.faker.phone_number(),
+            "phone": phone,
             "country_code": "+1",
         }
 

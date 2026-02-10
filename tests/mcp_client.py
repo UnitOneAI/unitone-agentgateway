@@ -115,7 +115,9 @@ class MCPClientBase(ABC):
                         "session_id": self.session_header
                     }
                 elif data and "error" in data:
-                    return {"success": False, "error": data["error"]}
+                    error = data["error"]
+                    error_str = json.dumps(error) if isinstance(error, dict) else str(error)
+                    return {"success": False, "error": error_str}
 
             return {
                 "success": False,
@@ -150,7 +152,9 @@ class MCPClientBase(ABC):
                 if data and "result" in data:
                     return {"success": True, "tools": data["result"].get("tools", [])}
                 elif data and "error" in data:
-                    return {"success": False, "error": data["error"], "blocked": True}
+                    error = data["error"]
+                    error_str = json.dumps(error) if isinstance(error, dict) else str(error)
+                    return {"success": False, "error": error_str, "blocked": True}
 
             # Check if blocked by security guard
             if response.status_code in [403, 400]:
@@ -198,7 +202,9 @@ class MCPClientBase(ABC):
                 if data and "result" in data:
                     return {"success": True, "result": data["result"]}
                 elif data and "error" in data:
-                    return {"success": False, "error": data["error"]}
+                    error = data["error"]
+                    error_str = json.dumps(error) if isinstance(error, dict) else str(error)
+                    return {"success": False, "error": error_str}
 
             if response.status_code in [403, 400]:
                 return {
@@ -364,7 +370,9 @@ class MCPStreamableHTTPClient(MCPClientBase):
                         "session_id": self.session_header
                     }
                 elif data and "error" in data:
-                    return {"success": False, "error": data["error"]}
+                    error = data["error"]
+                    error_str = json.dumps(error) if isinstance(error, dict) else str(error)
+                    return {"success": False, "error": error_str}
 
             return {
                 "success": False,
