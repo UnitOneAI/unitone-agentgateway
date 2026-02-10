@@ -12,6 +12,17 @@ binds:
     name: default
     protocol: HTTP
     routes:
+    # Root redirect to UI
+    - name: root-redirect
+      matches:
+      - path:
+          pathExact: /
+      policies:
+        requestRedirect:
+          path:
+            full: /ui
+          status: 302
+
     # UI Dashboard
     - name: ui-route
       matches:
