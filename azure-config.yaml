@@ -63,6 +63,12 @@ binds:
           - name: time-server
             mcp:
               host: https://mcp-server-time.fly.dev
+          - name: github
+            mcp:
+              host: https://mcp-server-github.fly.dev
+          - name: cloudflare
+            mcp:
+              host: https://mcp-server-cloudflare.fly.dev
           statefulMode: stateful
           securityGuards:
           # ============================================================
