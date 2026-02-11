@@ -1,0 +1,113 @@
+# Atlassian MCP Server - MCP routing with security guards + OAuth
+#
+# Uses mcpAuthentication in permissive mode to handle OAuth discovery while
+# allowing Atlassian's opaque tokens (not JWTs) to pass through to upstream.
+#
+# Atlassian uses OAuth 2.1 with PKCE (opaque tokens, no JWKS).
+# The gateway serves /.well-known/* endpoints with the gateway's URL,
+# so the MCP client discovers OAuth correctly through the proxy.
+#
+# OAuth metadata (discovered from Atlassian):
+#   Auth server:  https://cf.mcp.atlassian.com
+#   Authorize:    https://mcp.atlassian.com/v1/authorize
+#   Token:        https://cf.mcp.atlassian.com/v1/token
+#   Register:     https://cf.mcp.atlassian.com/v1/register
+#   PKCE:         plain, S256
+#
+# Note: Atlassian's MCP endpoint is at /v1/mcp, so the target host includes the full path.
+#
+# Requires: router.rs patch (always send 401 when no Authorization header)
+# Build with: ./agw build --local  (or ./agw build for ACR cloud build)
+
+binds:
+- port: 8080
+  listeners:
+  - routes:
+    # UI route
+    - name: ui-route
+      matches:
+      - path:
+          pathPrefix: /ui
+      backends:
+      - host: 127.0.0.1:15000
+
+    # Admin API route
+    - name: admin-api-route
+      matches:
+      - path:
+          pathPrefix: /config
+      backends:
+      - host: 127.0.0.1:15000
+
+    # MCP endpoint with security guards + OAuth passthrough
+    - name: atlassian-mcp
+      matches:
+      - path:
+          pathPrefix: /mcp
+      - path:
+          exact: /.well-known/oauth-protected-resource/mcp
+      backends:
+      - mcp:
+          targets:
+          - name: atlassian
+            mcp:
+              host: https://mcp.atlassian.com/v1/mcp
+          statefulMode: stateful
+          securityGuards:
+          - id: tool-poisoning
+            type: tool_poisoning
+            enabled: true
+            priority: 10
+            runs_on:
+            - tools_list
+            - response
+            strict_mode: true
+            alert_threshold: 1
+            scan_fields:
+            - name
+            - description
+            - input_schema
+          - id: rug-pull
+            type: rug_pull
+            enabled: true
+            priority: 20
+            runs_on:
+            - tools_list
+            - response
+            risk_threshold: 1
+          - id: pii-detection
+            type: pii
+            enabled: true
+            priority: 30
+            runs_on:
+            - response
+            - tool_invoke
+            detect:
+            - email
+            - phone_number
+            - ssn
+            - credit_card
+            action: mask
+            min_score: 0.5
+      policies:
+        cors:
+          allowCredentials: false
+          allowHeaders:
+          - '*'
+          allowMethods:
+          - '*'
+          allowOrigins:
+          - '*'
+          exposeHeaders:
+          - mcp-session-id
+          - www-authenticate
+        mcpAuthentication:
+          issuer: https://cf.mcp.atlassian.com
+          audiences:
+          - https://mcp.atlassian.com/v1/mcp
+          mode: permissive
+          jwks: '{"keys":[]}'
+          resourceMetadata:
+            resource: http://localhost:8080/mcp
+            bearerMethodsSupported:
+            - header
