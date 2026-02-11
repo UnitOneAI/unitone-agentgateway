@@ -96,6 +96,7 @@ RUN cat cargo-docker.config.toml >> .cargo/config.toml
 
 COPY agentgateway/crates ./crates
 COPY agentgateway/common ./common
+RUN chmod +x common/scripts/*.sh
 COPY --from=node /app/out ./ui/out
 
 ENV CC=clang
