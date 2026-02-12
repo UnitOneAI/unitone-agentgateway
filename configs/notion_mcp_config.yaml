@@ -42,9 +42,9 @@ binds:
     - name: notion-mcp
       matches:
       - path:
-          pathPrefix: /mcp
+          pathPrefix: /notion
       - path:
-          exact: /.well-known/oauth-protected-resource/mcp
+          exact: /.well-known/oauth-protected-resource/notion
       backends:
       - mcp:
           targets:
@@ -113,7 +113,7 @@ binds:
           mode: permissive
           jwks: '{"keys":[]}'
           resourceMetadata:
-            resource: http://127.0.0.1:8080/mcp
+            resource: http://127.0.0.1:8080/notion
             scopesSupported:
             - notion:read_content
             - notion:update_content

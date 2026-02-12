@@ -16,9 +16,9 @@ binds:
       name: admin-api-route
     - matches:
       - path:
-          pathPrefix: /mcp
+          pathPrefix: /figma
       - path:
-          exact: /.well-known/oauth-protected-resource/mcp
+          exact: /.well-known/oauth-protected-resource/figma
       backends:
       - mcp:
           targets:
@@ -88,7 +88,7 @@ binds:
           mode: permissive
           jwks: '{"keys":[]}'
           resourceMetadata:
-            resource: http://localhost:8080/mcp
+            resource: http://127.0.0.1:8080/figma
             scopesSupported:
             - mcp:connect
             bearerMethodsSupported:

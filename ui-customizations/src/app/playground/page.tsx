@@ -11,6 +11,8 @@ import {
   ListToolsResultSchema as McpListToolsResultSchema,
   Tool as McpTool,
 } from "@modelcontextprotocol/sdk/types.js";
+import { UnauthorizedError } from "@modelcontextprotocol/sdk/client/auth.js";
+import { BrowserOAuthProvider } from "@/lib/mcp-oauth-provider";
 import { z } from "zod";
 import {
   A2AClient,
@@ -459,40 +461,91 @@ export default function PlaygroundPage() {
       if (backendType === "mcp") {
         setConnectionState((prev) => ({ ...prev, connectionType: "mcp" }));
 
-        // TODO: Support acting as a stateless client
-        const client = new McpClient(
-          { name: "agentgateway-dashboard", version: "0.1.0" },
-          { capabilities: {} }
-        );
-
-        const headers: Record<string, string> = {
-          Accept: "text/event-stream",
-          "Cache-Control": "no-cache",
-          "mcp-protocol-version": "2024-11-05",
-        };
-
-        // Only add auth header if token is provided and not empty
-        if (connectionState.authToken && connectionState.authToken.trim()) {
-          headers["Authorization"] = `Bearer ${connectionState.authToken}`;
-        }
-
         const mcpUrl = selectedRoute.endpoint.endsWith("/")
           ? selectedRoute.endpoint.slice(0, -1)
           : selectedRoute.endpoint;
-        const transport = new McpHttpTransport(new URL(mcpUrl), {
-          requestInit: {
-            headers: headers as HeadersInit,
-            credentials: "omit",
-            mode: "cors",
-          },
-        });
 
-        await client.connect(transport);
-        setMcpState((prev) => ({ ...prev, client }));
+        let connectedClient: McpClient<McpRequest, any, McpResult>;
+
+        if (connectionState.authToken && connectionState.authToken.trim()) {
+          // Manual bearer token mode: use header injection (backward compatible)
+          const client = new McpClient(
+            { name: "agentgateway-dashboard", version: "0.1.0" },
+            { capabilities: {} }
+          );
+
+          const headers: Record<string, string> = {
+            Accept: "text/event-stream",
+            "Cache-Control": "no-cache",
+            "mcp-protocol-version": "2024-11-05",
+            Authorization: `Bearer ${connectionState.authToken}`,
+          };
+
+          const transport = new McpHttpTransport(new URL(mcpUrl), {
+            requestInit: {
+              headers: headers as HeadersInit,
+              credentials: "omit",
+              mode: "cors",
+            },
+          });
+
+          await client.connect(transport);
+          connectedClient = client;
+        } else {
+          // Automatic OAuth mode: use SDK's built-in authProvider
+          // If the server doesn't require auth, the provider is never invoked.
+          // If the server requires auth, the full OAuth 2.1 flow runs automatically.
+          const oauthProvider = new BrowserOAuthProvider(mcpUrl);
+
+          const client = new McpClient(
+            { name: "agentgateway-dashboard", version: "0.1.0" },
+            { capabilities: {} }
+          );
+
+          const transport = new McpHttpTransport(new URL(mcpUrl), {
+            authProvider: oauthProvider,
+          });
+
+          try {
+            await client.connect(transport);
+            connectedClient = client;
+          } catch (error) {
+            if (error instanceof UnauthorizedError) {
+              // OAuth redirect was triggered — popup is open, wait for auth code
+              toast.info("Please authorize in the popup window...");
+              try {
+                const authCode = await oauthProvider.waitForAuthCode();
+                await transport.finishAuth(authCode);
+
+                // Reconnect with a new client + transport (tokens are now cached in provider)
+                const newClient = new McpClient(
+                  { name: "agentgateway-dashboard", version: "0.1.0" },
+                  { capabilities: {} }
+                );
+                const newTransport = new McpHttpTransport(new URL(mcpUrl), {
+                  authProvider: oauthProvider,
+                });
+                await newClient.connect(newTransport);
+                connectedClient = newClient;
+              } catch (oauthError) {
+                oauthProvider.dispose();
+                throw oauthError;
+              }
+            } else {
+              oauthProvider.dispose();
+              throw error;
+            }
+          }
+        }
+
+        setMcpState((prev) => ({ ...prev, client: connectedClient }));
 
         setUiState((prev) => ({ ...prev, isLoadingCapabilities: true }));
         const listToolsRequest: McpClientRequest = { method: "tools/list", params: {} };
-        const toolsResponse = await client.request(listToolsRequest, McpListToolsResultSchema);
+        const toolsResponse = await connectedClient.request(
+          listToolsRequest,
+          McpListToolsResultSchema
+        );
         setMcpState((prev) => ({ ...prev, tools: toolsResponse.tools }));
 
         // Only mark as connected and show success after tools are loaded successfully
@@ -1418,12 +1471,12 @@ export default function PlaygroundPage() {
                       </Badge>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Label htmlFor="auth-token" className="text-sm">
-                        Bearer Token (Optional):
+                      <Label htmlFor="auth-token" className="text-sm whitespace-nowrap">
+                        Bearer Token:
                       </Label>
                       <Input
                         id="auth-token"
-                        placeholder="Enter token if required"
+                        placeholder="Leave empty for automatic OAuth"
                         type="password"
                         value={connectionState.authToken}
                         onChange={(e) => handleAuthTokenChange(e.target.value)}
