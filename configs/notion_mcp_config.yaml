@@ -1,0 +1,122 @@
+# Notion MCP Server - MCP routing with security guards + OAuth
+#
+# Uses mcpAuthentication in permissive mode to handle OAuth discovery while
+# allowing Notion's opaque tokens (not JWTs) to pass through to upstream.
+#
+# Notion uses OAuth 2.1 with PKCE (opaque tokens, no JWKS).
+# The gateway serves /.well-known/* endpoints with the gateway's URL,
+# so the MCP client discovers OAuth correctly through the proxy.
+#
+# OAuth metadata (discovered from Notion):
+#   Auth server:  https://mcp.notion.com
+#   Authorize:    https://mcp.notion.com/oauth/authorize
+#   Token:        https://mcp.notion.com/oauth/token
+#   Register:     https://mcp.notion.com/oauth/register
+#   Scopes:       notion:read_content, notion:update_content, notion:read_user_without_email
+#   PKCE:         S256
+#
+# Requires: router.rs patch (always send 401 when no Authorization header)
+# Build with: ./agw build --local  (or ./agw build for ACR cloud build)
+
+binds:
+- port: 8080
+  listeners:
+  - routes:
+    # UI route
+    - name: ui-route
+      matches:
+      - path:
+          pathPrefix: /ui
+      backends:
+      - host: 127.0.0.1:15000
+
+    # Admin API route
+    - name: admin-api-route
+      matches:
+      - path:
+          pathPrefix: /config
+      backends:
+      - host: 127.0.0.1:15000
+
+    # MCP endpoint with security guards + OAuth passthrough
+    - name: notion-mcp
+      matches:
+      - path:
+          pathPrefix: /notion
+      - path:
+          exact: /.well-known/oauth-protected-resource/notion
+      backends:
+      - mcp:
+          targets:
+          - name: notion
+            mcp:
+              host: https://mcp.notion.com/mcp
+          statefulMode: stateful
+          securityGuards:
+          - id: tool-poisoning
+            type: tool_poisoning
+            enabled: true
+            priority: 10
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - tools_list
+            - response
+            strict_mode: true
+            scan_fields:
+            - name
+            - description
+            - input_schema
+            alert_threshold: 1
+          - id: rug-pull
+            type: rug_pull
+            enabled: true
+            priority: 20
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - tools_list
+            - response
+            risk_threshold: 1
+          - id: pii-detection
+            type: pii
+            enabled: true
+            priority: 30
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - response
+            - tool_invoke
+            detect:
+            - email
+            - phone_number
+            - ssn
+            - credit_card
+            action: mask
+            min_score: 0.5
+      policies:
+        cors:
+          allowCredentials: false
+          allowHeaders:
+          - '*'
+          allowMethods:
+          - '*'
+          allowOrigins:
+          - '*'
+          exposeHeaders:
+          - mcp-session-id
+          - www-authenticate
+        mcpAuthentication:
+          issuer: https://mcp.notion.com
+          audiences:
+          - https://mcp.notion.com/mcp
+          mode: permissive
+          jwks: '{"keys":[]}'
+          resourceMetadata:
+            resource: http://127.0.0.1:8080/notion
+            scopesSupported:
+            - notion:read_content
+            - notion:update_content
+            - notion:read_user_without_email
+            bearerMethodsSupported:
+            - header

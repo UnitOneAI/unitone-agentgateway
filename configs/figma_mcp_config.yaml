@@ -1,0 +1,95 @@
+binds:
+- port: 8080
+  listeners:
+  - routes:
+    - matches:
+      - path:
+          pathPrefix: /ui
+      backends:
+      - host: 127.0.0.1:15000
+      name: ui-route
+    - matches:
+      - path:
+          pathPrefix: /config
+      backends:
+      - host: 127.0.0.1:15000
+      name: admin-api-route
+    - matches:
+      - path:
+          pathPrefix: /figma
+      - path:
+          exact: /.well-known/oauth-protected-resource/figma
+      backends:
+      - mcp:
+          targets:
+          - name: figma
+            mcp:
+              host: https://mcp.figma.com/mcp
+          statefulMode: stateful
+          securityGuards:
+          - id: tool-poisoning
+            type: tool_poisoning
+            enabled: true
+            priority: 10
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - tools_list
+            - response
+            strict_mode: true
+            scan_fields:
+            - name
+            - description
+            - input_schema
+            alert_threshold: 1
+          - id: rug-pull
+            type: rug_pull
+            enabled: true
+            priority: 20
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - tools_list
+            - response
+            risk_threshold: 1
+          - id: pii-detection
+            type: pii
+            enabled: true
+            priority: 30
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - response
+            - tool_invoke
+            detect:
+            - email
+            - phone_number
+            - ssn
+            - credit_card
+            action: mask
+            min_score: 0.5
+      name: figma-mcp
+      policies:
+        cors:
+          allowCredentials: false
+          allowHeaders:
+          - '*'
+          allowMethods:
+          - '*'
+          allowOrigins:
+          - '*'
+          exposeHeaders:
+          - mcp-session-id
+          - www-authenticate
+        mcpAuthentication:
+          issuer: https://api.figma.com
+          audiences:
+          - https://mcp.figma.com/mcp
+          mode: permissive
+          jwks: '{"keys":[]}'
+          resourceMetadata:
+            resource: http://127.0.0.1:8080/figma
+            scopesSupported:
+            - mcp:connect
+            bearerMethodsSupported:
+            - header
