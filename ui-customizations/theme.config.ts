@@ -17,7 +17,7 @@ export const themeConfig = {
       width: 36,
       height: 36,
     },
-    favicon: "/icon.svg",
+    favicon: "/ui/favicon.ico",
   },
 
   colors: {

@@ -10,7 +10,7 @@ fake = Faker()
 
 from .generators import generator_registry
 # Import generators to trigger auto-registration
-from .generators import PersonalGenerator, IdentityGenerator, FinancialGenerator  # noqa: F401
+from .generators import PersonalGenerator, IdentityGenerator, FinancialGenerator, WebGenerator  # noqa: F401
 from .fixtures import PERSONAL_FIXTURES, FINANCIAL_FIXTURES, MIXED_FIXTURES
 from .fixtures.datasets import IDENTITY_FIXTURES
 
@@ -22,6 +22,7 @@ PII_TYPES = Literal[
     "name", "email", "phone", "dob", "address", "personal",
     "ssn", "drivers_license", "passport", "identity",
     "credit_card", "bank_account", "tax_id", "financial",
+    "ca_sin", "url",
 ]
 
 
@@ -129,6 +130,12 @@ def generate_text_with_pii(pii_type: PII_TYPES) -> str:
         card = pii_data["credit_card"]["number"]
         account = pii_data["bank_account"]["account_number"]
         text = f"{lorem} Use card {card} or account {account}. {fake.paragraph(nb_sentences=2)}"
+    elif pii_type == "ca_sin":
+        pii_value = pii_data["sin"]
+        text = f"{lorem} My Canadian SIN is {pii_value}. {fake.paragraph(nb_sentences=2)}"
+    elif pii_type == "url":
+        pii_value = pii_data["url"]
+        text = f"{lorem} Visit {pii_value} for more info. {fake.paragraph(nb_sentences=2)}"
     else:
         text = f"{lorem} {json.dumps(pii_data, default=str)} {fake.paragraph(nb_sentences=2)}"
 

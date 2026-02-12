@@ -1,44 +1,39 @@
-# UnitOne AgentGateway - Default Configuration
-#
-# This config is used when deploying to Azure.
-# Test server URLs are configured at deploy time via deploy-test-servers.sh
-#
-# For local testing, use: tests/docker/docker-compose.yaml
-
 binds:
 - port: 8080
   listeners:
-  - hostname: "*"
+  - protocol: HTTP
     name: default
-    protocol: HTTP
+    hostname: '*'
     routes:
-    # UI Dashboard
-    - name: ui-route
-      matches:
+    - matches:
+      - path:
+          exact: /
+      backends:
+      - host: 127.0.0.1:15000
+      name: root-redirect
+      policies:
+        urlRewrite:
+          path:
+            full: /ui
+    - matches:
       - path:
           pathPrefix: /ui
       backends:
       - host: 127.0.0.1:15000
-
-    # Admin API
-    - name: admin-api-route
-      matches:
+      name: ui-route
+    - matches:
       - path:
           pathPrefix: /config
       backends:
       - host: 127.0.0.1:15000
-
-    - name: admin-route
-      matches:
+      name: admin-api-route
+    - matches:
       - path:
           pathPrefix: /admin
       backends:
       - host: 127.0.0.1:15000
-
-    # MCP route - configure your MCP servers here
-    # Example with security guards enabled:
-    - name: mcp-route
-      matches:
+      name: admin-route
+    - matches:
       - path:
           pathPrefix: /mcp
       backends:
@@ -52,20 +47,86 @@ binds:
           - id: tool-poisoning
             type: tool_poisoning
             enabled: true
+            priority: 10
             runs_on:
+            - tools_list
             - response
+            strict_mode: true
+            alert_threshold: 1
+            scan_fields:
+            - name
+            - description
+            - input_schema
+            custom_patterns:
+            - (?i)<IMPORTANT>.*</IMPORTANT>
+            - (?i)<SYSTEM>.*</SYSTEM>
+            - (?i)<INSTRUCTION>.*</INSTRUCTION>
+            - (?i)\[IMPORTANT\]
+            - (?i)\[INSTRUCTION\]
+            - (?i)IMPORTANT:\s*.{0,50}(must|always|never|do not)
+            - (?i)NOTE:\s*.{0,50}(override|ignore|bypass)
+            - (?i)REQUIRED:\s*.{0,50}(execute|run|call)
+            - (?i)base64[._-]?decode
+            - (?i)atob\s*\(
+            - (?i)btoa\s*\(
+            - (?i)from[._-]?base64
+            - (?i)decode\s*\(\s*['"][A-Za-z0-9+/=]{20,}
+            - \u200b
+            - \u200c
+            - \u200d
+            - \u200e
+            - \u200f
+            - \u2060
+            - \ufeff
+            - (?i)DAN\s*(mode|enabled|activated)
+            - (?i)(do|act)\s+anything\s+now
+            - (?i)jailbreak(ed)?\s*(mode)?
+            - (?i)developer\s+mode\s+(enabled|on|activated)
+            - (?i)unrestricted\s+mode
+            - (?i)from\s+now\s+on[,]?\s+(you|act|pretend|behave)
+            - (?i)let'?s\s+play\s+a\s+game
+            - (?i)imagine\s+you\s+are\s+(a|an)?\s*(unrestricted|evil|malicious)
+            - (?i)hypothetically[,]?\s*(if|what|suppose)
+            - (?i)in\s+this\s+fictional\s+scenario
+            - (?i)if\s+you\s+(were|could|can)\s+.{0,30}(ignore|bypass|override)
+            - (?i)what\s+if\s+.{0,30}(no|without)\s+(restrictions?|rules?|guidelines?)
+            - (?i)for\s+(educational|research|testing)\s+purposes?\s+only
+            - (?i)\]\]>.*<\!\[CDATA\[
+            - (?i)<!--.*-->
+            - (?i)<script[^>]*>.*</script>
+            - (?i)%[0-9a-f]{2}.*execute
+            - (?i)repeat\s+(back|everything|all)\s+(above|before|prior)
+            - (?i)output\s+(your|the|all)\s+(instructions?|prompt|rules?)
+            - (?i)tell\s+me\s+(your|the)\s+(system|original)\s+(prompt|instructions?)
+            - (?i)end\s+of\s+(system|assistant)\s+(message|prompt)
+            - (?i)\[\s*end\s*\]
+            - (?i)---\s*(system|user|assistant)\s*---
+            - (?i)\*\*\*\s*(NEW|OVERRIDE|UPDATED)\s*(INSTRUCTIONS?|RULES?)\s*\*\*\*
           - id: rug-pull
             type: rug_pull
             enabled: true
+            priority: 20
             runs_on:
+            - tools_list
             - response
-            risk_threshold: 5
+            risk_threshold: 1
           - id: pii-detection
             type: pii
             enabled: true
+            priority: 30
             runs_on:
             - response
+            - tool_invoke
+            detect:
+            - email
+            - phone_number
+            - ssn
+            - credit_card
+            - ca_sin
+            - url
             action: mask
+            min_score: 0.3
+      name: mcp-route
       policies:
         cors:
           allowCredentials: false
@@ -77,3 +138,345 @@ binds:
           - '*'
           exposeHeaders:
           - mcp-session-id
+    - hostnames: []
+      matches:
+      - path:
+          pathPrefix: /github
+      backends:
+      - mcp:
+          targets:
+          - name: github-mcp
+            mcp:
+              host: https://api.githubcopilot.com/mcp
+          statefulMode: stateful
+          securityGuards:
+          - id: pii-1770141345658
+            type: pii
+            enabled: true
+            priority: 100
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - request
+            - response
+            - tool_invoke
+            detect:
+            - email
+            - credit_card
+            action: mask
+            min_score: 0.3
+          - id: tool_poisoning-1770141347150
+            type: tool_poisoning
+            enabled: true
+            priority: 100
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - response
+            strict_mode: true
+            scan_fields:
+            - name
+            - description
+            - input_schema
+            alert_threshold: 1
+          - id: rug_pull-1770141348586
+            type: rug_pull
+            enabled: true
+            priority: 100
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - response
+            risk_threshold: 5
+      name: github-route
+    - hostnames: []
+      matches:
+      - path:
+          pathPrefix: /cloudflare
+      backends:
+      - mcp:
+          targets:
+          - name: cloudflare-mcp
+            mcp:
+              host: https://bindings.mcp.cloudflare.com/mcp
+          statefulMode: stateful
+          securityGuards:
+          - id: pii-1770141665635
+            type: pii
+            enabled: true
+            priority: 100
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - request
+            - response
+            - tool_invoke
+            detect:
+            - email
+            - credit_card
+            action: mask
+            min_score: 0.3
+          - id: tool_poisoning-1770141666653
+            type: tool_poisoning
+            enabled: true
+            priority: 100
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - response
+            strict_mode: true
+            scan_fields:
+            - name
+            - description
+            - input_schema
+            alert_threshold: 1
+          - id: rug_pull-1770141667865
+            type: rug_pull
+            enabled: true
+            priority: 100
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - response
+            risk_threshold: 5
+      name: cloudflare-route
+    - hostnames: []
+      matches:
+      - path:
+          pathPrefix: /notion
+      - path:
+          exact: /.well-known/oauth-protected-resource/notion
+      backends:
+      - mcp:
+          targets:
+          - name: notion
+            mcp:
+              host: https://mcp.notion.com/mcp
+          statefulMode: stateful
+          securityGuards:
+          - id: tool-poisoning
+            type: tool_poisoning
+            enabled: true
+            priority: 10
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - tools_list
+            - response
+            strict_mode: true
+            scan_fields:
+            - name
+            - description
+            - input_schema
+            alert_threshold: 1
+          - id: rug-pull
+            type: rug_pull
+            enabled: true
+            priority: 20
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - tools_list
+            - response
+            risk_threshold: 1
+          - id: pii-detection
+            type: pii
+            enabled: true
+            priority: 30
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - response
+            - tool_invoke
+            detect:
+            - email
+            - phone_number
+            - ssn
+            - credit_card
+            action: mask
+            min_score: 0.5
+      name: notion-mcp
+      policies:
+        cors:
+          allowCredentials: false
+          allowHeaders:
+          - '*'
+          allowMethods:
+          - '*'
+          allowOrigins:
+          - '*'
+          exposeHeaders:
+          - mcp-session-id
+          - www-authenticate
+        mcpAuthentication:
+          issuer: https://mcp.notion.com
+          audiences:
+          - https://mcp.notion.com/mcp
+          mode: permissive
+          jwks: '{"keys":[]}'
+          resourceMetadata:
+            resource: http://127.0.0.1:8080/notion
+            scopesSupported:
+            - notion:read_content
+            - notion:update_content
+            - notion:read_user_without_email
+            bearerMethodsSupported:
+            - header
+    - hostnames: []
+      matches:
+      - path:
+          pathPrefix: /figma
+      - path:
+          exact: /.well-known/oauth-protected-resource/figma
+      backends:
+      - mcp:
+          targets:
+          - name: figma
+            mcp:
+              host: https://mcp.figma.com/mcp
+          statefulMode: stateful
+          securityGuards:
+          - id: tool-poisoning
+            type: tool_poisoning
+            enabled: true
+            priority: 10
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - tools_list
+            - response
+            strict_mode: true
+            scan_fields:
+            - name
+            - description
+            - input_schema
+            alert_threshold: 1
+          - id: rug-pull
+            type: rug_pull
+            enabled: true
+            priority: 20
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - tools_list
+            - response
+            risk_threshold: 1
+          - id: pii-detection
+            type: pii
+            enabled: true
+            priority: 30
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - response
+            - tool_invoke
+            detect:
+            - email
+            - phone_number
+            - ssn
+            - credit_card
+            action: mask
+            min_score: 0.5
+      name: figma-mcp
+      policies:
+        cors:
+          allowCredentials: false
+          allowHeaders:
+          - '*'
+          allowMethods:
+          - '*'
+          allowOrigins:
+          - '*'
+          exposeHeaders:
+          - mcp-session-id
+          - www-authenticate
+        mcpAuthentication:
+          issuer: https://api.figma.com
+          audiences:
+          - https://mcp.figma.com/mcp
+          mode: permissive
+          jwks: '{"keys":[]}'
+          resourceMetadata:
+            resource: http://127.0.0.1:8080/figma
+            scopesSupported:
+            - mcp:connect
+            bearerMethodsSupported:
+            - header
+    - hostnames: []
+      matches:
+      - path:
+          pathPrefix: /atlassian
+      - path:
+          exact: /.well-known/oauth-protected-resource/atlassian
+      backends:
+      - mcp:
+          targets:
+          - name: atlassian
+            mcp:
+              host: https://mcp.atlassian.com/v1/mcp
+          statefulMode: stateful
+          securityGuards:
+          - id: tool-poisoning
+            type: tool_poisoning
+            enabled: true
+            priority: 10
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - tools_list
+            - response
+            strict_mode: true
+            scan_fields:
+            - name
+            - description
+            - input_schema
+            alert_threshold: 1
+          - id: rug-pull
+            type: rug_pull
+            enabled: true
+            priority: 20
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - tools_list
+            - response
+            risk_threshold: 1
+          - id: pii-detection
+            type: pii
+            enabled: true
+            priority: 30
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - response
+            - tool_invoke
+            detect:
+            - email
+            - phone_number
+            - ssn
+            - credit_card
+            action: mask
+            min_score: 0.5
+      name: atlassian-mcp
+      policies:
+        cors:
+          allowCredentials: false
+          allowHeaders:
+          - '*'
+          allowMethods:
+          - '*'
+          allowOrigins:
+          - '*'
+          exposeHeaders:
+          - mcp-session-id
+          - www-authenticate
+        mcpAuthentication:
+          issuer: https://cf.mcp.atlassian.com
+          audiences:
+          - https://mcp.atlassian.com/v1/mcp
+          mode: permissive
+          jwks: '{"keys":[]}'
+          resourceMetadata:
+            resource: http://127.0.0.1:8080/atlassian
+            bearerMethodsSupported:
+            - header

@@ -4,9 +4,14 @@
 # It routes MCP requests to the mcp-test-servers container.
 #
 # Routes:
-#   /pii-test  -> mcp-test-servers:8000 (PII test server)
+#   /pii-test         -> mcp-test-servers:8000 (PII test server, mask mode)
+#   /pii-test-reject  -> mcp-test-servers:8000 (PII test server, reject mode)
 #   /poison    -> mcp-test-servers:8010 (Tool poisoning test server)
 #   /rug-pull  -> mcp-test-servers:8020 (Rug pull test server)
+#   /rug-pull-desc   -> mcp-test-servers:8020 (Rug pull mode: description)
+#   /rug-pull-schema -> mcp-test-servers:8020 (Rug pull mode: schema)
+#   /rug-pull-remove -> mcp-test-servers:8020 (Rug pull mode: remove)
+#   /rug-pull-add    -> mcp-test-servers:8020 (Rug pull mode: add)
 
 binds:
 - port: 8080
@@ -29,7 +34,53 @@ binds:
       backends:
       - host: 127.0.0.1:15000
 
-    # PII test route - connects to PII MCP server on port 8000
+    # PII test route (reject mode) - must come before /pii-test to avoid prefix match overlap
+    - name: pii-test-reject
+      hostnames: []
+      matches:
+      - path:
+          pathPrefix: /pii-test-reject
+      backends:
+      - mcp:
+          securityGuards:
+          - id: tool-poisoning
+            type: tool_poisoning
+            runs_on:
+            - request
+            - response
+          - id: pii-guard-reject
+            type: pii
+            runs_on:
+            - request
+            - response
+            - tool_invoke
+            detect:
+            - email
+            - credit_card
+            - ssn
+            - phone_number
+            - ca_sin
+            - url
+            action: reject
+          targets:
+          - name: pii-mcp-reject
+            mcp:
+              host: http://mcp-test-servers:8000/mcp
+          statefulMode: stateful
+      policies:
+        cors:
+          allowCredentials: false
+          allowHeaders:
+          - '*'
+          allowMethods:
+          - '*'
+          allowOrigins:
+          - '*'
+          exposeHeaders:
+          - mcp-session-id
+          maxAge: null
+
+    # PII test route (mask mode) - connects to PII MCP server on port 8000
     - name: pii-test
       hostnames: []
       matches:
@@ -54,6 +105,8 @@ binds:
             - credit_card
             - ssn
             - phone_number
+            - ca_sin
+            - url
             action: mask
           targets:
           - name: pii-mcp
@@ -136,3 +189,72 @@ binds:
           exposeHeaders:
           - mcp-session-id
           maxAge: null
+
+    # Rug pull mode-specific routes (separate target names for isolated baselines)
+    - name: rug-pull-desc
+      matches:
+      - path:
+          pathPrefix: /rug-pull-desc
+      backends:
+      - mcp:
+          securityGuards:
+          - id: rug-pull-desc
+            type: rug_pull
+            runs_on: [response]
+            risk_threshold: 5
+          targets:
+          - name: rug-pull-desc
+            mcp:
+              host: http://mcp-test-servers:8020/mcp
+          statefulMode: stateful
+
+    - name: rug-pull-schema
+      matches:
+      - path:
+          pathPrefix: /rug-pull-schema
+      backends:
+      - mcp:
+          securityGuards:
+          - id: rug-pull-schema
+            type: rug_pull
+            runs_on: [response]
+            risk_threshold: 5
+          targets:
+          - name: rug-pull-schema
+            mcp:
+              host: http://mcp-test-servers:8020/mcp
+          statefulMode: stateful
+
+    - name: rug-pull-remove
+      matches:
+      - path:
+          pathPrefix: /rug-pull-remove
+      backends:
+      - mcp:
+          securityGuards:
+          - id: rug-pull-remove
+            type: rug_pull
+            runs_on: [response]
+            risk_threshold: 5
+          targets:
+          - name: rug-pull-remove
+            mcp:
+              host: http://mcp-test-servers:8020/mcp
+          statefulMode: stateful
+
+    - name: rug-pull-add
+      matches:
+      - path:
+          pathPrefix: /rug-pull-add
+      backends:
+      - mcp:
+          securityGuards:
+          - id: rug-pull-add
+            type: rug_pull
+            runs_on: [response]
+            risk_threshold: 5
+          targets:
+          - name: rug-pull-add
+            mcp:
+              host: http://mcp-test-servers:8020/mcp
+          statefulMode: stateful
