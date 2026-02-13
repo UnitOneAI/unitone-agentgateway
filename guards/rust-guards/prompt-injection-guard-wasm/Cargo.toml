@@ -1,0 +1,21 @@
+[package]
+name = "prompt-injection-guard-wasm"
+version = "0.1.0"
+edition = "2021"
+description = "Prompt Injection Guard compiled to WASM - scans tool arguments and responses"
+
+[workspace]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wit-bindgen = "0.16"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0", features = ["preserve_order"] }
+
+[profile.release]
+opt-level = "z"     # Optimize for size
+lto = true          # Link-time optimization
+codegen-units = 1   # Better optimization
+strip = true        # Remove debug symbols

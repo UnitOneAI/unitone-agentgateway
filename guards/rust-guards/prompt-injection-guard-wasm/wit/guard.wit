@@ -1,0 +1,81 @@
+// WIT (WebAssembly Interface Type) definition for MCP security guards
+//
+// This defines the interface between the AgentGateway host (Rust)
+// and the WASM guest module (any language compiled to WASM).
+
+package mcp:security-guard@0.1.0;
+
+/// Guest interface - functions exported by the WASM module
+interface guard {
+    /// Represents an MCP tool
+    record tool {
+        name: string,
+        description: option<string>,
+        input-schema: string,  /// JSON-serialized schema
+    }
+
+    /// Context provided by the host
+    record guard-context {
+        server-name: string,
+        server-url: option<string>,
+        identity: option<string>,
+        metadata: string,  /// JSON-serialized metadata
+    }
+
+    /// Guard decision result
+    variant decision {
+        allow,
+        deny(deny-reason),
+        modify(string),  /// JSON-serialized modification (for PII masking, etc.)
+        warn(list<string>),  /// Allow with warnings
+    }
+
+    /// Reason for denying a request
+    record deny-reason {
+        code: string,
+        message: string,
+        details: option<string>,  /// JSON-serialized details
+    }
+
+    /// Evaluate server connection before establishing
+    evaluate-server-connection: func(context: guard-context) -> result<decision, string>;
+
+    /// Evaluate tools/list response
+    evaluate-tools-list: func(tools: list<tool>, context: guard-context) -> result<decision, string>;
+
+    /// Evaluate a tool invocation (tools/call) before execution
+    /// tool-name: name of the tool being invoked
+    /// arguments: JSON-serialized tool arguments
+    evaluate-tool-invoke: func(tool-name: string, arguments: string, context: guard-context) -> result<decision, string>;
+
+    /// Evaluate a response from the MCP server
+    /// response: JSON-serialized response content
+    evaluate-response: func(response: string, context: guard-context) -> result<decision, string>;
+
+    /// Get JSON Schema describing guard's configurable parameters
+    /// Returns JSON-serialized JSON Schema (Draft 2020-12)
+    /// Schema describes guard-specific settings only (not common settings like priority, timeout)
+    get-settings-schema: func() -> string;
+
+    /// Get default configuration as JSON
+    /// Returns JSON-serialized default config values
+    get-default-config: func() -> string;
+}
+
+/// Host interface - functions provided by AgentGateway to the WASM module
+interface host {
+    /// Log levels: 0=trace, 1=debug, 2=info, 3=warn, 4=error
+    log: func(level: u8, message: string);
+
+    /// Get current Unix timestamp in milliseconds
+    get-time: func() -> u64;
+
+    /// Get configuration value (returns empty string if not found)
+    get-config: func(key: string) -> string;
+}
+
+/// The complete world definition
+world security-guard {
+    export guard;
+    import host;
+}

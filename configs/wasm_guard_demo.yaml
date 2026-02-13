@@ -1,0 +1,82 @@
+binds:
+- port: 8080
+  listeners:
+  - routes:
+    - matches:
+      - path:
+          pathPrefix: /ui
+      backends:
+      - host: 127.0.0.1:15000
+      name: ui-route
+    - matches:
+      - path:
+          pathPrefix: /config
+      backends:
+      - host: 127.0.0.1:15000
+      name: admin-api-route
+    - matches:
+      - path:
+          pathPrefix: /api
+      backends:
+      - host: 127.0.0.1:15000
+      name: api-route
+    - matches:
+      - path:
+          pathPrefix: /mcp
+      backends:
+      - mcp:
+          targets:
+          - name: pii-test-server
+            mcp:
+              host: http://127.0.0.1:8000/mcp
+          statefulMode: stateful
+          securityGuards:
+          - id: pii-1770998997747
+            type: pii
+            enabled: false
+            priority: 100
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - request
+            - response
+            - tool_invoke
+            detect:
+            - email
+            - credit_card
+            - ssn
+            action: mask
+            min_score: 0.3
+          - id: wasm-1770999165215
+            type: wasm
+            enabled: true
+            priority: 100
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - response
+            - tools_list
+            - tool_invoke
+            module_path: ./guards/rust-guards/prompt-injection-guard-wasm/prompt_injection_guard.wasm
+            max_memory: 10485760
+            max_wasm_stack: 2097152
+            config:
+              custom_patterns:
+              - weight: 5
+                pattern: make some deal
+              - weight: 5
+                pattern: expiry
+              scan_tool_arguments: true
+              scan_responses: true
+      name: demo-wasm-guard
+      policies:
+        cors:
+          allowCredentials: false
+          allowHeaders:
+          - '*'
+          allowMethods:
+          - '*'
+          allowOrigins:
+          - '*'
+          exposeHeaders:
+          - mcp-session-id
