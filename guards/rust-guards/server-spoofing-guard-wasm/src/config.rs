@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use crate::state;
-
 /// A whitelist entry from configuration.
 #[derive(Debug, Clone)]
 pub struct WhitelistEntry {
@@ -34,32 +32,39 @@ impl Default for GuardConfig {
     }
 }
 
-/// Load configuration from host, with caching.
+/// Config keys to request from the host.
+const CONFIG_KEYS: &[&str] = &[
+    "whitelist_enabled",
+    "whitelist",
+    "block_unknown_servers",
+    "typosquat_detection_enabled",
+    "typosquat_similarity_threshold",
+    "tool_mimicry_detection_enabled",
+];
+
+/// Load configuration from host.
+///
+/// The host stores config as individual key-value pairs (not a single JSON blob),
+/// so we request each key separately and assemble them into a JSON object.
+/// Config is read fresh on every call to support hot-reload.
 pub fn get_config() -> GuardConfig {
-    if let Some(cached) = state::get_cached_config() {
-        return parse_config(&cached);
+    // Request each config key individually from the host
+    let mut config_map = serde_json::Map::new();
+    for &key in CONFIG_KEYS {
+        let value_str = crate::mcp::security_guard::host::get_config(key);
+        if !value_str.is_empty() {
+            if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&value_str) {
+                config_map.insert(key.to_string(), parsed);
+            }
+        }
     }
 
-    let config_json = crate::mcp::security_guard::host::get_config("guard_config");
-
-    if config_json.is_empty() {
-        let default_val = serde_json::json!({});
-        state::set_cached_config(default_val);
+    if config_map.is_empty() {
         return GuardConfig::default();
     }
 
-    match serde_json::from_str::<serde_json::Value>(&config_json) {
-        Ok(val) => {
-            state::set_cached_config(val.clone());
-            parse_config(&val)
-        }
-        Err(_) => {
-            crate::log_error("Failed to parse guard config JSON");
-            let default_val = serde_json::json!({});
-            state::set_cached_config(default_val);
-            GuardConfig::default()
-        }
-    }
+    let val = serde_json::Value::Object(config_map);
+    parse_config(&val)
 }
 
 /// Get whitelist entries from config.

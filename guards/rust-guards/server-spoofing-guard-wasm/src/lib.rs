@@ -171,6 +171,21 @@ impl Guest for ServerSpoofingGuard {
         Ok(Decision::Allow)
     }
 
+    fn evaluate_tool_invoke(
+        _tool_name: String,
+        _arguments: String,
+        _context: GuardContext,
+    ) -> Result<Decision, String> {
+        Ok(Decision::Allow)
+    }
+
+    fn evaluate_response(
+        _response: String,
+        _context: GuardContext,
+    ) -> Result<Decision, String> {
+        Ok(Decision::Allow)
+    }
+
     fn get_settings_schema() -> String {
         schema::get_settings_schema()
     }
