@@ -240,3 +240,243 @@ binds:
             - response
             risk_threshold: 5
       name: cloudflare-route
+    - hostnames: []
+      matches:
+      - path:
+          pathPrefix: /notion
+      - path:
+          exact: /.well-known/oauth-protected-resource/notion
+      backends:
+      - mcp:
+          targets:
+          - name: notion
+            mcp:
+              host: https://mcp.notion.com/mcp
+          statefulMode: stateful
+          securityGuards:
+          - id: tool-poisoning
+            type: tool_poisoning
+            enabled: true
+            priority: 10
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - tools_list
+            - response
+            strict_mode: true
+            scan_fields:
+            - name
+            - description
+            - input_schema
+            alert_threshold: 1
+          - id: rug-pull
+            type: rug_pull
+            enabled: true
+            priority: 20
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - tools_list
+            - response
+            risk_threshold: 1
+          - id: pii-detection
+            type: pii
+            enabled: true
+            priority: 30
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - response
+            - tool_invoke
+            detect:
+            - email
+            - phone_number
+            - ssn
+            - credit_card
+            action: mask
+            min_score: 0.5
+      name: notion-mcp
+      policies:
+        cors:
+          allowCredentials: false
+          allowHeaders:
+          - '*'
+          allowMethods:
+          - '*'
+          allowOrigins:
+          - '*'
+          exposeHeaders:
+          - mcp-session-id
+          - www-authenticate
+        mcpAuthentication:
+          issuer: https://mcp.notion.com
+          audiences:
+          - https://mcp.notion.com/mcp
+          mode: permissive
+          jwks: '{"keys":[]}'
+          resourceMetadata:
+            resource: http://127.0.0.1:8080/notion
+            scopesSupported:
+            - notion:read_content
+            - notion:update_content
+            - notion:read_user_without_email
+            bearerMethodsSupported:
+            - header
+    - hostnames: []
+      matches:
+      - path:
+          pathPrefix: /figma
+      - path:
+          exact: /.well-known/oauth-protected-resource/figma
+      backends:
+      - mcp:
+          targets:
+          - name: figma
+            mcp:
+              host: https://mcp.figma.com/mcp
+          statefulMode: stateful
+          securityGuards:
+          - id: tool-poisoning
+            type: tool_poisoning
+            enabled: true
+            priority: 10
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - tools_list
+            - response
+            strict_mode: true
+            scan_fields:
+            - name
+            - description
+            - input_schema
+            alert_threshold: 1
+          - id: rug-pull
+            type: rug_pull
+            enabled: true
+            priority: 20
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - tools_list
+            - response
+            risk_threshold: 1
+          - id: pii-detection
+            type: pii
+            enabled: true
+            priority: 30
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - response
+            - tool_invoke
+            detect:
+            - email
+            - phone_number
+            - ssn
+            - credit_card
+            action: mask
+            min_score: 0.5
+      name: figma-mcp
+      policies:
+        cors:
+          allowCredentials: false
+          allowHeaders:
+          - '*'
+          allowMethods:
+          - '*'
+          allowOrigins:
+          - '*'
+          exposeHeaders:
+          - mcp-session-id
+          - www-authenticate
+        mcpAuthentication:
+          issuer: https://api.figma.com
+          audiences:
+          - https://mcp.figma.com/mcp
+          mode: permissive
+          jwks: '{"keys":[]}'
+          resourceMetadata:
+            resource: http://127.0.0.1:8080/figma
+            scopesSupported:
+            - mcp:connect
+            bearerMethodsSupported:
+            - header
+    - hostnames: []
+      matches:
+      - path:
+          pathPrefix: /atlassian
+      - path:
+          exact: /.well-known/oauth-protected-resource/atlassian
+      backends:
+      - mcp:
+          targets:
+          - name: atlassian
+            mcp:
+              host: https://mcp.atlassian.com/v1/mcp
+          statefulMode: stateful
+          securityGuards:
+          - id: tool-poisoning
+            type: tool_poisoning
+            enabled: true
+            priority: 10
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - tools_list
+            - response
+            strict_mode: true
+            scan_fields:
+            - name
+            - description
+            - input_schema
+            alert_threshold: 1
+          - id: rug-pull
+            type: rug_pull
+            enabled: true
+            priority: 20
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - tools_list
+            - response
+            risk_threshold: 1
+          - id: pii-detection
+            type: pii
+            enabled: true
+            priority: 30
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - response
+            - tool_invoke
+            detect:
+            - email
+            - phone_number
+            - ssn
+            - credit_card
+            action: mask
+            min_score: 0.5
+      name: atlassian-mcp
+      policies:
+        cors:
+          allowCredentials: false
+          allowHeaders:
+          - '*'
+          allowMethods:
+          - '*'
+          allowOrigins:
+          - '*'
+          exposeHeaders:
+          - mcp-session-id
+          - www-authenticate
+        mcpAuthentication:
+          issuer: https://cf.mcp.atlassian.com
+          audiences:
+          - https://mcp.atlassian.com/v1/mcp
+          mode: permissive
+          jwks: '{"keys":[]}'
+          resourceMetadata:
+            resource: http://127.0.0.1:8080/atlassian
+            bearerMethodsSupported:
+            - header
