@@ -1,0 +1,164 @@
+# Guard Benchmark Config
+#
+# Four routes pointing to the same PII test server, each with different guards:
+#   /bench-baseline  → no guards (baseline)
+#   /bench-pii       → PII guard only (native)
+#   /bench-wasm-pi   → WASM prompt-injection guard only
+#   /bench-both      → PII guard + WASM prompt-injection guard
+#
+# Prerequisites:
+#   1. Start the PII test server:  cd testservers && uvicorn mcp_test_server.fastmcp_server:mcp.streamable_http_app --host 0.0.0.0 --port 8000
+#   2. Start the gateway:          cargo run -F wasm-guards -- --config configs/benchmark_guards.yaml
+#   3. Run the benchmark:          python tests/benchmark_guards.py
+#
+config:
+  adminAddr: 0.0.0.0:15000
+binds:
+- port: 8080
+  listeners:
+  - routes:
+
+    # ── Baseline: no guards ─────────────────────────────────────────
+    - name: bench-baseline
+      matches:
+      - path:
+          pathPrefix: /bench-baseline
+      backends:
+      - mcp:
+          targets:
+          - name: pii-mcp
+            mcp:
+              host: http://127.0.0.1:8000/mcp
+          statefulMode: stateful
+      policies:
+        cors:
+          allowCredentials: false
+          allowHeaders: ['*']
+          allowMethods: ['*']
+          allowOrigins: ['*']
+          exposeHeaders: [mcp-session-id]
+
+    # ── PII guard only (native) ────────────────────────────────────
+    - name: bench-pii
+      matches:
+      - path:
+          pathPrefix: /bench-pii
+      backends:
+      - mcp:
+          targets:
+          - name: pii-mcp
+            mcp:
+              host: http://127.0.0.1:8000/mcp
+          statefulMode: stateful
+          securityGuards:
+          - id: pii-guard
+            type: pii
+            enabled: true
+            priority: 100
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - request
+            - response
+            - tool_invoke
+            detect:
+            - email
+            - phone_number
+            - ssn
+            - credit_card
+            - ca_sin
+            - url
+            action: mask
+            min_score: 0.3
+      policies:
+        cors:
+          allowCredentials: false
+          allowHeaders: ['*']
+          allowMethods: ['*']
+          allowOrigins: ['*']
+          exposeHeaders: [mcp-session-id]
+
+    # ── WASM prompt-injection guard only ────────────────────────────
+    - name: bench-wasm-pi
+      matches:
+      - path:
+          pathPrefix: /bench-wasm-pi
+      backends:
+      - mcp:
+          targets:
+          - name: pii-mcp
+            mcp:
+              host: http://127.0.0.1:8000/mcp
+          statefulMode: stateful
+          securityGuards:
+          - id: wasm-prompt-injection
+            type: wasm
+            enabled: true
+            priority: 100
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - tool_invoke
+            - response
+            module_path: ./guards/rust-guards/prompt-injection-guard-wasm/prompt_injection_guard.wasm
+            max_memory: 10485760
+            max_wasm_stack: 2097152
+      policies:
+        cors:
+          allowCredentials: false
+          allowHeaders: ['*']
+          allowMethods: ['*']
+          allowOrigins: ['*']
+          exposeHeaders: [mcp-session-id]
+
+    # ── Both guards ────────────────────────────────────────────────
+    - name: bench-both
+      matches:
+      - path:
+          pathPrefix: /bench-both
+      backends:
+      - mcp:
+          targets:
+          - name: pii-mcp
+            mcp:
+              host: http://127.0.0.1:8000/mcp
+          statefulMode: stateful
+          securityGuards:
+          - id: pii-guard
+            type: pii
+            enabled: true
+            priority: 100
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - request
+            - response
+            - tool_invoke
+            detect:
+            - email
+            - phone_number
+            - ssn
+            - credit_card
+            - ca_sin
+            - url
+            action: mask
+            min_score: 0.3
+          - id: wasm-prompt-injection
+            type: wasm
+            enabled: true
+            priority: 200
+            timeout_ms: 100
+            failure_mode: fail_closed
+            runs_on:
+            - tool_invoke
+            - response
+            module_path: ./guards/rust-guards/prompt-injection-guard-wasm/prompt_injection_guard.wasm
+            max_memory: 10485760
+            max_wasm_stack: 2097152
+      policies:
+        cors:
+          allowCredentials: false
+          allowHeaders: ['*']
+          allowMethods: ['*']
+          allowOrigins: ['*']
+          exposeHeaders: [mcp-session-id]

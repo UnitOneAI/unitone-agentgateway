@@ -1,7 +1,7 @@
-// WIT (WebAssembly Interface Type) definition for Server Spoofing Guard
+// WIT (WebAssembly Interface Type) definition for MCP security guards
 //
-// Extended interface to support server connection evaluation in addition
-// to tools/list evaluation.
+// This defines the interface between the AgentGateway host (Rust)
+// and the WASM guest module (any language compiled to WASM).
 
 package mcp:security-guard@0.1.0;
 
@@ -43,8 +43,18 @@ interface guard {
     /// Evaluate tools/list response
     evaluate-tools-list: func(tools: list<tool>, context: guard-context) -> result<decision, string>;
 
+    /// Evaluate a tool invocation (tools/call) before execution
+    /// tool-name: name of the tool being invoked
+    /// arguments: JSON-serialized tool arguments
+    evaluate-tool-invoke: func(tool-name: string, arguments: string, context: guard-context) -> result<decision, string>;
+
+    /// Evaluate a response from the MCP server
+    /// response: JSON-serialized response content
+    evaluate-response: func(response: string, context: guard-context) -> result<decision, string>;
+
     /// Get JSON Schema describing guard's configurable parameters
     /// Returns JSON-serialized JSON Schema (Draft 2020-12)
+    /// Schema describes guard-specific settings only (not common settings like priority, timeout)
     get-settings-schema: func() -> string;
 
     /// Get default configuration as JSON

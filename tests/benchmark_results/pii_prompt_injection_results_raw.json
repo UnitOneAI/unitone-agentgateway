@@ -1,0 +1,272 @@
+[
+  {
+    "scenario": "generate_credit_card",
+    "description": "Single credit card PII generation",
+    "routes": {
+      "baseline": {
+        "min_ms": 2.12,
+        "max_ms": 5.67,
+        "avg_ms": 3.13,
+        "p50_ms": 2.97,
+        "p95_ms": 4.32,
+        "p99_ms": 4.88,
+        "count": 200,
+        "allowed": 200,
+        "blocked": 0,
+        "errors": 0
+      },
+      "pii_guard": {
+        "min_ms": 2.45,
+        "max_ms": 179.42,
+        "avg_ms": 4.43,
+        "p50_ms": 3.44,
+        "p95_ms": 4.66,
+        "p99_ms": 6.02,
+        "count": 200,
+        "allowed": 200,
+        "blocked": 0,
+        "errors": 0
+      },
+      "wasm_pi": {
+        "min_ms": 2.5,
+        "max_ms": 4.61,
+        "avg_ms": 2.94,
+        "p50_ms": 2.84,
+        "p95_ms": 3.64,
+        "p99_ms": 4.12,
+        "count": 200,
+        "allowed": 200,
+        "blocked": 0,
+        "errors": 0
+      },
+      "both_guards": {
+        "min_ms": 2.53,
+        "max_ms": 6.16,
+        "avg_ms": 3.33,
+        "p50_ms": 3.11,
+        "p95_ms": 4.77,
+        "p99_ms": 5.29,
+        "count": 200,
+        "allowed": 200,
+        "blocked": 0,
+        "errors": 0
+      }
+    }
+  },
+  {
+    "scenario": "generate_full_record",
+    "description": "Full record (personal + identity + financial)",
+    "routes": {
+      "baseline": {
+        "min_ms": 2.55,
+        "max_ms": 11.37,
+        "avg_ms": 3.09,
+        "p50_ms": 2.97,
+        "p95_ms": 3.88,
+        "p99_ms": 4.46,
+        "count": 200,
+        "allowed": 200,
+        "blocked": 0,
+        "errors": 0
+      },
+      "pii_guard": {
+        "min_ms": 4.2,
+        "max_ms": 8.24,
+        "avg_ms": 5.61,
+        "p50_ms": 5.52,
+        "p95_ms": 6.78,
+        "p99_ms": 7.5,
+        "count": 200,
+        "allowed": 200,
+        "blocked": 0,
+        "errors": 0
+      },
+      "wasm_pi": {
+        "min_ms": 3.22,
+        "max_ms": 5.75,
+        "avg_ms": 3.76,
+        "p50_ms": 3.66,
+        "p95_ms": 4.6,
+        "p99_ms": 5.21,
+        "count": 200,
+        "allowed": 200,
+        "blocked": 0,
+        "errors": 0
+      },
+      "both_guards": {
+        "min_ms": 4.79,
+        "max_ms": 29.67,
+        "avg_ms": 6.16,
+        "p50_ms": 5.91,
+        "p95_ms": 7.38,
+        "p99_ms": 9.6,
+        "count": 200,
+        "allowed": 200,
+        "blocked": 0,
+        "errors": 0
+      }
+    }
+  },
+  {
+    "scenario": "generate_text_with_email",
+    "description": "Lorem ipsum text with embedded email",
+    "routes": {
+      "baseline": {
+        "min_ms": 2.26,
+        "max_ms": 4.22,
+        "avg_ms": 2.64,
+        "p50_ms": 2.57,
+        "p95_ms": 3.14,
+        "p99_ms": 3.74,
+        "count": 200,
+        "allowed": 200,
+        "blocked": 0,
+        "errors": 0
+      },
+      "pii_guard": {
+        "min_ms": 2.33,
+        "max_ms": 4.05,
+        "avg_ms": 2.8,
+        "p50_ms": 2.7,
+        "p95_ms": 3.56,
+        "p99_ms": 3.98,
+        "count": 200,
+        "allowed": 200,
+        "blocked": 0,
+        "errors": 0
+      },
+      "wasm_pi": {
+        "min_ms": 2.79,
+        "max_ms": 6.36,
+        "avg_ms": 3.66,
+        "p50_ms": 3.49,
+        "p95_ms": 4.74,
+        "p99_ms": 5.31,
+        "count": 200,
+        "allowed": 200,
+        "blocked": 0,
+        "errors": 0
+      },
+      "both_guards": {
+        "min_ms": 2.59,
+        "max_ms": 5.68,
+        "avg_ms": 3.39,
+        "p50_ms": 3.19,
+        "p95_ms": 4.79,
+        "p99_ms": 5.1,
+        "count": 200,
+        "allowed": 200,
+        "blocked": 0,
+        "errors": 0
+      }
+    }
+  },
+  {
+    "scenario": "generate_bulk_50",
+    "description": "Bulk: 50 personal PII records (large payload)",
+    "routes": {
+      "baseline": {
+        "min_ms": 17.04,
+        "max_ms": 23.97,
+        "avg_ms": 18.43,
+        "p50_ms": 18.32,
+        "p95_ms": 19.82,
+        "p99_ms": 21.5,
+        "count": 200,
+        "allowed": 200,
+        "blocked": 0,
+        "errors": 0
+      },
+      "pii_guard": {
+        "min_ms": 30.18,
+        "max_ms": 57.3,
+        "avg_ms": 34.62,
+        "p50_ms": 33.92,
+        "p95_ms": 40.09,
+        "p99_ms": 51.58,
+        "count": 200,
+        "allowed": 200,
+        "blocked": 0,
+        "errors": 0
+      },
+      "wasm_pi": {
+        "min_ms": 18.39,
+        "max_ms": 38.42,
+        "avg_ms": 20.06,
+        "p50_ms": 19.8,
+        "p95_ms": 21.8,
+        "p99_ms": 23.72,
+        "count": 200,
+        "allowed": 200,
+        "blocked": 0,
+        "errors": 0
+      },
+      "both_guards": {
+        "min_ms": 29.67,
+        "max_ms": 59.64,
+        "avg_ms": 34.1,
+        "p50_ms": 33.72,
+        "p95_ms": 37.5,
+        "p99_ms": 47.68,
+        "count": 200,
+        "allowed": 200,
+        "blocked": 0,
+        "errors": 0
+      }
+    }
+  },
+  {
+    "scenario": "tools_list",
+    "description": "tools/list (guard scans tool descriptions)",
+    "routes": {
+      "baseline": {
+        "min_ms": 1.71,
+        "max_ms": 3.57,
+        "avg_ms": 2.32,
+        "p50_ms": 2.29,
+        "p95_ms": 3.01,
+        "p99_ms": 3.42,
+        "count": 200,
+        "allowed": 200,
+        "blocked": 0,
+        "errors": 0
+      },
+      "pii_guard": {
+        "min_ms": 1.74,
+        "max_ms": 2.7,
+        "avg_ms": 1.97,
+        "p50_ms": 1.93,
+        "p95_ms": 2.29,
+        "p99_ms": 2.55,
+        "count": 200,
+        "allowed": 200,
+        "blocked": 0,
+        "errors": 0
+      },
+      "wasm_pi": {
+        "min_ms": 1.92,
+        "max_ms": 3.65,
+        "avg_ms": 2.24,
+        "p50_ms": 2.13,
+        "p95_ms": 2.77,
+        "p99_ms": 3.07,
+        "count": 200,
+        "allowed": 200,
+        "blocked": 0,
+        "errors": 0
+      },
+      "both_guards": {
+        "min_ms": 1.98,
+        "max_ms": 4.61,
+        "avg_ms": 2.42,
+        "p50_ms": 2.32,
+        "p95_ms": 3.26,
+        "p99_ms": 3.46,
+        "count": 200,
+        "allowed": 200,
+        "blocked": 0,
+        "errors": 0
+      }
+    }
+  }
+]

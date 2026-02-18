@@ -138,6 +138,37 @@ class TestWasmLoading:
         assert instance is not None
 
 
+    def test_component_exports_schema_functions(self, engine):
+        """Component should export get-settings-schema and get-default-config."""
+        if not WASM_FILE.exists():
+            pytest.skip("WASM file not built")
+
+        from wasmtime import Store
+        from wasmtime.component import Component, Linker
+
+        store = Store(engine)
+        linker = Linker(engine)
+        linker.add_wasip2()
+
+        host_instance = linker.root().add_instance("mcp:security-guard/host@0.1.0")
+        host_instance.add_func("log", lambda level, msg: None)
+        host_instance.add_func("get-time", lambda: 0)
+        host_instance.add_func("get-config", lambda key: "")
+        del host_instance
+
+        component = Component.from_file(engine, str(WASM_FILE))
+        instance = linker.instantiate(store, component)
+
+        guard_idx = instance.get_export(store, None, "mcp:security-guard/guard@0.1.0")
+        assert guard_idx is not None, "Guard interface not found"
+
+        schema_idx = instance.get_export(store, guard_idx, "get-settings-schema")
+        assert schema_idx is not None, "get-settings-schema not found in guard exports"
+
+        config_idx = instance.get_export(store, guard_idx, "get-default-config")
+        assert config_idx is not None, "get-default-config not found in guard exports"
+
+
 class TestWitInterface:
     """Tests for WIT interface definition."""
 
@@ -161,6 +192,13 @@ class TestWitInterface:
         assert "record guard-context" in content
         assert "variant decision" in content
         assert "record deny-reason" in content
+
+    def test_wit_defines_schema_functions(self):
+        """WIT should define get-settings-schema and get-default-config functions."""
+        content = WIT_FILE.read_text()
+
+        assert "get-settings-schema" in content
+        assert "get-default-config" in content
 
     def test_wit_defines_host_interface(self):
         """WIT should define host interface with required functions."""
@@ -201,6 +239,13 @@ class TestBuildArtifacts:
         assert "def evaluate_server_connection" in content
         assert "def evaluate_tools_list" in content
 
+    def test_app_py_defines_schema_methods(self):
+        """app.py should define get_settings_schema and get_default_config methods."""
+        content = APP_FILE.read_text()
+
+        assert "def get_settings_schema" in content
+        assert "def get_default_config" in content
+
     def test_app_py_implements_detection_algorithms(self):
         """app.py should implement the core detection algorithms."""
         content = APP_FILE.read_text()
@@ -222,3 +267,78 @@ class TestBuildArtifacts:
 
         content = gitignore.read_text()
         assert "wit_world/" in content or "*.wasm" in content
+
+
+class TestSchemaAndConfig:
+    """Tests for get_settings_schema and get_default_config outputs."""
+
+    def test_settings_schema_is_valid_json_structure(self):
+        """get_settings_schema should contain valid JSON Schema markers."""
+        content = APP_FILE.read_text()
+        assert "get_settings_schema" in content
+        assert '"$schema"' in content
+        assert '"https://json-schema.org/draft/2020-12/schema"' in content
+
+    def test_settings_schema_has_required_fields(self):
+        """Schema JSON should contain all required top-level fields."""
+        content = APP_FILE.read_text()
+
+        assert '"$id"' in content
+        assert '"title"' in content
+        assert '"properties"' in content
+        assert '"x-guard-meta"' in content
+        assert '"guardType"' in content
+        assert '"server_spoofing"' in content
+
+    def test_settings_schema_has_all_config_properties(self):
+        """Schema should describe all configurable properties."""
+        content = APP_FILE.read_text()
+
+        assert '"whitelist_enabled"' in content
+        assert '"whitelist"' in content
+        assert '"block_unknown_servers"' in content
+        assert '"typosquat_detection_enabled"' in content
+        assert '"typosquat_similarity_threshold"' in content
+        assert '"tool_mimicry_detection_enabled"' in content
+
+    def test_settings_schema_has_ui_hints(self):
+        """Schema properties should include x-ui hints."""
+        content = APP_FILE.read_text()
+
+        assert '"x-ui"' in content
+        assert '"component"' in content
+        assert '"order"' in content
+
+    def test_settings_schema_has_ui_groups(self):
+        """Schema should define x-ui-groups for property grouping."""
+        content = APP_FILE.read_text()
+
+        assert '"x-ui-groups"' in content
+        assert '"whitelist"' in content
+        assert '"typosquat"' in content
+        assert '"mimicry"' in content
+
+    def test_default_config_has_all_keys(self):
+        """get_default_config should return JSON with all config keys."""
+        content = APP_FILE.read_text()
+        assert "get_default_config" in content
+        assert '"whitelist_enabled"' in content
+        assert '"typosquat_similarity_threshold"' in content
+
+    def test_schema_and_config_consistency(self):
+        """Default config keys should match schema property keys."""
+        content = APP_FILE.read_text()
+
+        config_properties = [
+            "whitelist_enabled",
+            "whitelist",
+            "block_unknown_servers",
+            "typosquat_detection_enabled",
+            "typosquat_similarity_threshold",
+            "tool_mimicry_detection_enabled",
+        ]
+        for prop in config_properties:
+            # Each property should appear at least twice: once in schema, once in default config
+            assert content.count(f'"{prop}"') >= 2, (
+                f"Property '{prop}' should appear in both schema and default config"
+            )

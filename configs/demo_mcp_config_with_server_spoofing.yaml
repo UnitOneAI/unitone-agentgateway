@@ -1,0 +1,83 @@
+# Demo config with tool_poisoning + server_spoofing_guard (WASM)
+# This config adds Python server_spoofing_guard as second security guard
+binds:
+- port: 8080
+  listeners:
+  - routes:
+    # Admin UI route
+    - name: ui-route
+      matches:
+      - path:
+          pathPrefix: /ui
+      backends:
+      - host: 127.0.0.1:15000
+
+    # Admin API route
+    - name: admin-api-route
+      matches:
+      - path:
+          pathPrefix: /config
+      backends:
+      - host: 127.0.0.1:15000
+
+    # Tool poisoning test route with both guards
+    - hostnames: []
+      matches:
+      - path:
+          pathPrefix: /poison
+      backends:
+      - mcp:
+          securityGuards:
+          # Native Rust guard - tool poisoning detection
+          - id: tool-poisoning
+            type: tool_poisoning
+            enabled: true
+            priority: 100
+            failure_mode: fail_closed
+            timeout_ms: 50
+            runs_on:
+            - request
+            - response
+            strict_mode: true
+            scan_fields:
+            - name
+            - description
+
+          # WASM Python guard - server spoofing detection
+          # Uses connection phase for pre-connection validation (whitelist, typosquat)
+          # Uses tools_list phase for tool mimicry detection
+          - id: server-spoofing-guard
+            type: wasm
+            enabled: true
+            priority: 10
+            failure_mode: fail_closed
+            timeout_ms: 100
+            runs_on:
+            - connection
+            - tools_list
+            module_path: ./guards/python-guards/server-spoofing-guard-wasm/server_spoofing_guard.wasm
+            config:
+              whitelist:
+                - name: "poison"
+                  url_pattern: "http://127\\.0\\.0\\.1:8010/.*"
+              block_unknown_servers: false
+              typosquat_similarity_threshold: 0.85
+
+          targets:
+          - name: poison
+            mcp:
+              host: http://127.0.0.1:8010/mcp
+          statefulMode: stateful
+      name: tool-poisoning-with-server-spoofing
+      policies:
+        cors:
+          allowCredentials: false
+          allowHeaders:
+          - '*'
+          allowMethods:
+          - '*'
+          allowOrigins:
+          - '*'
+          exposeHeaders:
+          - mcp-session-id
+          maxAge: null

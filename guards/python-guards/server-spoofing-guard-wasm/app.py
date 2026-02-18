@@ -318,3 +318,148 @@ class Guard:
 
         host.log(1, f"Registered {len(tools)} tools for server: {server_name}")
         return Decision_Allow()
+
+    def get_settings_schema(self) -> str:
+        """Return JSON Schema describing guard's configurable parameters."""
+        schema = {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "agentgateway://guards/server-spoofing/v1",
+            "title": "Server Spoofing Guard",
+            "description": "Detects and blocks server spoofing attacks including fake servers, typosquatting, and tool mimicry",
+            "type": "object",
+            "properties": {
+                "whitelist_enabled": {
+                    "type": "boolean",
+                    "title": "Enable Whitelist",
+                    "description": "Enable server whitelist checking. When disabled, all servers are allowed.",
+                    "default": True,
+                    "x-ui": {
+                        "component": "checkbox",
+                        "order": 1,
+                        "group": "whitelist",
+                    },
+                },
+                "whitelist": {
+                    "type": "array",
+                    "title": "Approved Servers",
+                    "description": "List of approved MCP servers with optional URL patterns and tool fingerprints",
+                    "default": [],
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {
+                                "type": "string",
+                                "title": "Server Name",
+                                "description": "Exact server name to whitelist",
+                            },
+                            "url_pattern": {
+                                "type": "string",
+                                "title": "URL Pattern",
+                                "description": "Regex pattern to match server URL (optional)",
+                                "format": "regex",
+                            },
+                            "tool_fingerprints": {
+                                "type": "object",
+                                "title": "Tool Fingerprints",
+                                "description": "Map of tool name to expected fingerprint hash for mimicry detection",
+                                "additionalProperties": {"type": "string"},
+                            },
+                        },
+                        "required": ["name"],
+                    },
+                    "x-ui": {
+                        "component": "object-array",
+                        "placeholder": "Add approved server",
+                        "helpText": "Each entry defines an approved server. Tool fingerprints are used for mimicry detection.",
+                        "order": 2,
+                        "group": "whitelist",
+                    },
+                },
+                "block_unknown_servers": {
+                    "type": "boolean",
+                    "title": "Block Unknown Servers",
+                    "description": "Deny connections from servers not in the whitelist. When disabled, unknown servers generate warnings instead.",
+                    "default": True,
+                    "x-ui": {
+                        "component": "checkbox",
+                        "helpText": "If disabled, unrecognized servers will be allowed with a warning",
+                        "order": 3,
+                        "group": "whitelist",
+                    },
+                },
+                "typosquat_detection_enabled": {
+                    "type": "boolean",
+                    "title": "Enable Typosquat Detection",
+                    "description": "Detect server names that are suspiciously similar to approved servers (e.g., 'finance-too1s' vs 'finance-tools')",
+                    "default": True,
+                    "x-ui": {
+                        "component": "checkbox",
+                        "order": 4,
+                        "group": "typosquat",
+                    },
+                },
+                "typosquat_similarity_threshold": {
+                    "type": "number",
+                    "title": "Similarity Threshold",
+                    "description": "Levenshtein similarity ratio (0.0-1.0) above which a server name is flagged as a potential typosquat. Higher values are stricter.",
+                    "default": 0.85,
+                    "minimum": 0.0,
+                    "maximum": 1.0,
+                    "x-ui": {
+                        "component": "slider",
+                        "helpText": "0.85 means names must be 85% similar to trigger detection. Lower values catch more but may produce false positives.",
+                        "order": 5,
+                        "group": "typosquat",
+                    },
+                },
+                "tool_mimicry_detection_enabled": {
+                    "type": "boolean",
+                    "title": "Enable Tool Mimicry Detection",
+                    "description": "Detect when an untrusted server provides tools that match fingerprints or names of tools from trusted servers",
+                    "default": True,
+                    "x-ui": {
+                        "component": "checkbox",
+                        "helpText": "Compares tool fingerprints (SHA-256 of name+description+schema) and tool names across servers",
+                        "order": 6,
+                        "group": "mimicry",
+                    },
+                },
+            },
+            "x-ui-groups": {
+                "whitelist": {
+                    "title": "Server Whitelist",
+                    "order": 1,
+                    "description": "Control which MCP servers are allowed to connect",
+                },
+                "typosquat": {
+                    "title": "Typosquat Detection",
+                    "order": 2,
+                    "description": "Detect servers with names similar to approved servers",
+                },
+                "mimicry": {
+                    "title": "Tool Mimicry Detection",
+                    "order": 3,
+                    "description": "Detect tools that impersonate tools from trusted servers",
+                },
+            },
+            "x-guard-meta": {
+                "guardType": "server_spoofing",
+                "version": "1.0.0",
+                "category": "detection",
+                "defaultRunsOn": ["connection", "tools_list"],
+                "icon": "shield-alert",
+            },
+        }
+        return json.dumps(schema)
+
+    def get_default_config(self) -> str:
+        """Return default configuration as JSON."""
+        config = {
+            "whitelist_enabled": True,
+            "whitelist": [],
+            "block_unknown_servers": True,
+            "typosquat_detection_enabled": True,
+            "typosquat_similarity_threshold": 0.85,
+            "tool_mimicry_detection_enabled": True,
+        }
+        return json.dumps(config)
