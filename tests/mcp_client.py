@@ -36,7 +36,8 @@ class MCPClientBase(ABC):
         """
         self.base_url = base_url.rstrip('/')
         self.route = route.lstrip('/')
-        self.session_id = str(uuid.uuid4())
+        import secrets
+self.session_id = secrets.token_urlsafe(32)  # Use cryptographically secure random
         self.session_header = None
         self.client = httpx.AsyncClient(timeout=60.0)
         self.message_id = 0
