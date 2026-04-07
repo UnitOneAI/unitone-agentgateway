@@ -1,6 +1,6 @@
 ARG BUILDER=base
 
-FROM docker.io/library/node:23.11.0-bookworm AS node
+FROM docker.io/library/node:25.9.0-bookworm AS node
 
 WORKDIR /app
 
