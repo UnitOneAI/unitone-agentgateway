@@ -35,11 +35,11 @@ RUN npm install && chmod +x node_modules/.bin/*
 ENV NODE_ENV=production
 RUN npm run build
 
-FROM docker.io/library/rust:1.91.1-trixie AS arm64-sysroot
-FROM docker.io/library/rust:1.91.1-slim-bookworm AS arm64-musl-sysroot
-FROM docker.io/library/rust:1.91.1-slim-bookworm AS amd64-musl-sysroot
+FROM docker.io/library/rust:1.94.1-trixie AS arm64-sysroot
+FROM docker.io/library/rust:1.94.1-slim-bookworm AS arm64-musl-sysroot
+FROM docker.io/library/rust:1.94.1-slim-bookworm AS amd64-musl-sysroot
 
-FROM docker.io/library/rust:1.91.1-trixie AS base-builder
+FROM docker.io/library/rust:1.94.1-trixie AS base-builder
 
 RUN apt-get update && apt-get -y install clang-17 clang++-17 lld-17
 
