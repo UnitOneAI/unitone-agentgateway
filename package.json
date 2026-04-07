@@ -6,7 +6,7 @@
   "dependencies": {
     "lodash": "4.17.20",
     "axios": "0.21.1",
-    "minimist": "1.2.5",
+    "minimist": "1.2.8",
     "node-fetch": "2.6.1",
     "serialize-javascript": "2.1.2",
     "express": "4.17.1",
