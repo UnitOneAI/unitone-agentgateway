@@ -1,57 +1,215 @@
-# Benchmark config with WASM guard for comparison with native guards
-binds:
-- port: 8090
-  listeners:
-  - hostname: "*"
-    routes:
-    # Native PII guard route (for comparison baseline)
-    - name: native-pii
-      matches:
-      - path:
-          pathPrefix: /native-pii
-      backends:
-      - mcp:
-          securityGuards:
-          - id: pii-guard
-            type: pii
-            runs_on: [response]
-            detect: [email, credit_card, ssn, phone_number]
-            action: mask
-          targets:
-          - name: pii-test
-            mcp:
-              host: http://172.18.0.2:8000/mcp
-          statefulMode: stateful
+# Remediation Plan: 
 
-    # WASM guard route
-    - name: wasm-guard
-      matches:
-      - path:
-          pathPrefix: /wasm-guard
-      backends:
-      - mcp:
-          securityGuards:
-          - id: server-spoofing
-            type: wasm
-            runs_on: [response]
-            module_path: /Users/surindersingh/source_code/unitone-agentgateway/guards/python-guards/server-spoofing-guard-wasm/server_spoofing_guard.wasm
-            config:
-              block_unknown_servers: false
-          targets:
-          - name: pii-test
-            mcp:
-              host: http://172.18.0.2:8000/mcp
-          statefulMode: stateful
+**Severity:** medium
+**Category:** threat-model
+**Estimated Effort:** 12-16 hours
 
-    # No guard route (baseline)
-    - name: no-guard
-      matches:
-      - path:
-          pathPrefix: /no-guard
-      backends:
-      - mcp:
-          targets:
-          - name: pii-test
-            mcp:
-              host: http://172.18.0.2:8000/mcp
-          statefulMode: stateful
+## Summary
+Implement comprehensive threat modeling documentation and security controls for WASM guard benchmark configuration to address missing threat model analysis
+
+## Affected Components
+- WASM Guard Benchmark
+- Configuration Management
+- Security Documentation
+- Threat Model Framework
+
+## Implementation Steps
+### Step 1: Create threat model documentation
+Create a comprehensive threat model document that identifies assets, threats, vulnerabilities, and mitigations for the WASM guard benchmark system
+
+**Files to modify:**
+- `docs/threat-models/wasm_guard_benchmark_threat_model.md`
+- `tests/configs/wasm_guard_benchmark.yaml`
+
+**Example code:**
+```python
+# Add threat model metadata to YAML config
+threat_model:
+  version: "1.0"
+  last_reviewed: "2024-01-01"
+  assets:
+    - wasm_modules
+    - benchmark_data
+    - configuration_files
+  threats:
+    - malicious_wasm_injection
+    - configuration_tampering
+    - data_exfiltration
+  mitigations:
+    - input_validation
+    - sandboxing
+    - access_controls
+```
+
+_Note: Document should follow STRIDE methodology and be regularly updated_
+
+### Step 2: Add configuration validation
+Implement schema validation and security checks for the benchmark configuration file to prevent malicious configurations
+
+**Files to modify:**
+- `tests/configs/wasm_guard_benchmark.yaml`
+- `src/config/validator.py`
+
+**Example code:**
+```python
+# validator.py
+import yaml
+from jsonschema import validate, ValidationError
+
+def validate_wasm_config(config_path):
+    schema = {
+        "type": "object",
+        "required": ["security_level", "allowed_operations"],
+        "properties": {
+            "security_level": {"enum": ["strict", "moderate", "permissive"]},
+            "max_memory": {"type": "integer", "maximum": 1073741824},
+            "allowed_operations": {"type": "array", "items": {"type": "string"}}
+        }
+    }
+    
+    with open(config_path, 'r') as f:
+        config = yaml.safe_load(f)
+    
+    try:
+        validate(instance=config, schema=schema)
+        return True, "Valid configuration"
+    except ValidationError as e:
+        return False, f"Invalid configuration: {e.message}"
+```
+
+_Note: Validation should occur before any benchmark execution_
+
+### Step 3: Implement security controls
+Add security-specific configuration options and controls to the benchmark YAML file
+
+**Files to modify:**
+- `tests/configs/wasm_guard_benchmark.yaml`
+
+**Example code:**
+```python
+# Enhanced security configuration
+security:
+  sandboxing:
+    enabled: true
+    isolation_level: "strict"
+  resource_limits:
+    max_memory: 536870912  # 512MB
+    max_execution_time: 30000  # 30 seconds
+    max_file_descriptors: 10
+  allowed_capabilities:
+    - "compute"
+    - "memory_access"
+  blocked_capabilities:
+    - "network_access"
+    - "file_system_write"
+    - "system_calls"
+  input_validation:
+    enabled: true
+    max_input_size: 10485760  # 10MB
+    allowed_formats: ["wasm", "wat"]
+monitoring:
+  logging_level: "INFO"
+  audit_enabled: true
+  metrics_collection: true
+```
+
+_Note: All security controls should be enabled by default with secure defaults_
+
+### Step 4: Add security testing framework
+Create automated security tests that validate the threat model assumptions and security controls
+
+**Files to modify:**
+- `tests/security/test_wasm_guard_security.py`
+
+**Example code:**
+```python
+# test_wasm_guard_security.py
+import unittest
+from src.config.validator import validate_wasm_config
+from src.wasm.guard import WasmGuard
+
+class TestWasmGuardSecurity(unittest.TestCase):
+    def test_config_validation(self):
+        """Test that malicious configurations are rejected"""
+        malicious_config = {
+            "max_memory": 999999999999,  # Excessive memory
+            "allowed_operations": ["*"],  # Wildcard permissions
+        }
+        is_valid, message = validate_wasm_config(malicious_config)
+        self.assertFalse(is_valid)
+    
+    def test_resource_limits_enforced(self):
+        """Test that resource limits are properly enforced"""
+        guard = WasmGuard("tests/configs/wasm_guard_benchmark.yaml")
+        # Test memory limit enforcement
+        result = guard.execute_with_memory_limit(large_wasm_module)
+        self.assertIn("memory_limit_exceeded", result.errors)
+    
+    def test_capability_restrictions(self):
+        """Test that capability restrictions work correctly"""
+        guard = WasmGuard("tests/configs/wasm_guard_benchmark.yaml")
+        # Test that network access is blocked
+        result = guard.execute(network_accessing_wasm)
+        self.assertIn("capability_denied", result.errors)
+```
+
+_Note: Security tests should be run as part of CI/CD pipeline_
+
+### Step 5: Document security architecture
+Create comprehensive security documentation including threat model, security controls, and incident response procedures
+
+**Files to modify:**
+- `docs/security/wasm_guard_security.md`
+- `docs/security/incident_response.md`
+
+**Example code:**
+```python
+# Security Architecture Documentation
+## Threat Model Summary
+- **Assets**: WASM modules, benchmark data, host system
+- **Trust Boundaries**: Host-WASM boundary, Config-Runtime boundary
+- **Attack Vectors**: Malicious WASM, Config tampering, Resource exhaustion
+
+## Security Controls
+1. **Input Validation**: All WASM modules validated before execution
+2. **Sandboxing**: Strict isolation with capability-based security
+3. **Resource Limits**: Memory, CPU, and I/O limits enforced
+4. **Monitoring**: Comprehensive logging and anomaly detection
+
+## Incident Response
+1. **Detection**: Automated monitoring alerts
+2. **Containment**: Immediate sandbox termination
+3. **Investigation**: Log analysis and forensics
+4. **Recovery**: System restoration procedures
+```
+
+_Note: Documentation should be kept up-to-date with code changes_
+
+## Security Considerations
+- Ensure all WASM modules are validated before execution to prevent malicious code injection
+- Implement strict resource limits to prevent denial-of-service attacks
+- Use capability-based security model to minimize attack surface
+- Enable comprehensive logging and monitoring for security incident detection
+- Regular security reviews and threat model updates as system evolves
+- Implement secure defaults for all configuration options
+- Validate all configuration inputs to prevent configuration-based attacks
+
+## Best Practices
+- Follow principle of least privilege for WASM module capabilities
+- Implement defense in depth with multiple security controls
+- Use automated security testing in CI/CD pipeline
+- Maintain detailed threat model documentation with regular reviews
+- Implement proper error handling without information disclosure
+- Use secure coding practices for all security-critical components
+- Establish clear incident response procedures for security events
+
+## Acceptance Criteria
+- [ ] Comprehensive threat model document created and reviewed
+- [ ] Configuration validation successfully blocks malicious inputs
+- [ ] All security controls are properly configured and tested
+- [ ] Automated security tests pass in CI/CD pipeline
+- [ ] Security documentation is complete and up-to-date
+- [ ] Resource limits are enforced and prevent DoS attacks
+- [ ] Capability restrictions successfully block unauthorized operations
+- [ ] Security logging captures all relevant security events
+- [ ] Configuration schema validation prevents invalid configurations
