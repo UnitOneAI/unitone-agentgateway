@@ -1,108 +1,226 @@
-# E2E Test Gateway Configuration (Basic - No Security Guards)
-#
-# This configuration is used for basic testing without security guards.
-# Use this when the security-guards-enabled image isn't available.
-#
-# Routes:
-#   /pii-test  -> mcp-test-servers:8000 (PII test server)
-#   /poison    -> mcp-test-servers:8010 (Tool poisoning test server)
-#   /rug-pull  -> mcp-test-servers:8020 (Rug pull test server)
+# Remediation Plan: 
 
-binds:
-- port: 8080
-  listeners:
-  - hostname: "*"
-    routes:
-    # UI route
-    - name: ui-route
-      matches:
-      - path:
-          pathPrefix: /ui
-      backends:
-      - host: 127.0.0.1:15000
+**Severity:** medium
+**Category:** threat-model
+**Estimated Effort:** 4-6 hours
 
-    # Admin API route
-    - name: admin-api-route
-      matches:
-      - path:
-          pathPrefix: /config
-      backends:
-      - host: 127.0.0.1:15000
+## Summary
+Review and secure the e2e-gateway-config-basic.yaml configuration file to address potential threat model vulnerabilities and implement security hardening measures
 
-    # PII test route - connects to PII MCP server on port 8000
-    - name: pii-test
-      hostnames: []
-      matches:
-      - path:
-          pathPrefix: /pii-test
-      backends:
-      - mcp:
-          targets:
-          - name: pii-mcp
-            mcp:
-              host: http://mcp-test-servers:8000/mcp
-          statefulMode: stateful
-      policies:
-        cors:
-          allowCredentials: false
-          allowHeaders:
-          - '*'
-          allowMethods:
-          - '*'
-          allowOrigins:
-          - '*'
-          exposeHeaders:
-          - mcp-session-id
-          maxAge: null
+## Affected Components
+- gateway configuration
+- docker test environment
+- network security
+- authentication/authorization
 
-    # Tool poisoning test route - connects to port 8010
-    - name: tool-poisoning
-      hostnames: []
-      matches:
-      - path:
-          pathPrefix: /poison
-      backends:
-      - mcp:
-          targets:
-          - name: poison
-            mcp:
-              host: http://mcp-test-servers:8010/mcp
-          statefulMode: stateful
-      policies:
-        cors:
-          allowCredentials: false
-          allowHeaders:
-          - '*'
-          allowMethods:
-          - '*'
-          allowOrigins:
-          - '*'
-          exposeHeaders:
-          - mcp-session-id
-          maxAge: null
+## Implementation Steps
+### Step 1: Analyze current configuration for security vulnerabilities
+Review the existing gateway configuration file to identify insecure default settings, exposed ports, weak authentication, and missing security headers
 
-    # Rug pull test route - connects to port 8020
-    - name: rug-pull
-      hostnames: []
-      matches:
-      - path:
-          pathPrefix: /rug-pull
-      backends:
-      - mcp:
-          targets:
-          - name: rug-pull
-            mcp:
-              host: http://mcp-test-servers:8020/mcp
-          statefulMode: stateful
-      policies:
-        cors:
-          allowCredentials: false
-          allowHeaders:
-          - '*'
-          allowMethods:
-          - '*'
-          allowOrigins:
-          - '*'
-          exposeHeaders:
-          - mcp-session-id
-          maxAge: null
+**Files to modify:**
+- `tests/docker/configs/e2e-gateway-config-basic.yaml`
+
+**Example code:**
+```python
+# Review for:
+# - Default credentials
+# - Open ports without authentication
+# - Missing TLS configuration
+# - Overly permissive access controls
+# - Missing security headers
+```
+
+_Note: Document all identified security gaps before making changes_
+
+### Step 2: Implement strong authentication and authorization
+Configure proper authentication mechanisms and role-based access controls in the gateway configuration
+
+**Files to modify:**
+- `tests/docker/configs/e2e-gateway-config-basic.yaml`
+
+**Example code:**
+```python
+auth:
+  enabled: true
+  providers:
+    - name: jwt
+      type: jwt
+      settings:
+        secret: ${JWT_SECRET}
+        algorithm: HS256
+        verify_exp: true
+authorization:
+  enabled: true
+  default_policy: deny
+  rules:
+    - path: /health
+      method: GET
+      policy: allow
+    - path: /api/*
+      method: '*'
+      policy: authenticated
+```
+
+_Note: Use environment variables for sensitive configuration values_
+
+### Step 3: Enable TLS/SSL encryption
+Configure TLS settings to ensure all communications are encrypted in transit
+
+**Files to modify:**
+- `tests/docker/configs/e2e-gateway-config-basic.yaml`
+
+**Example code:**
+```python
+tls:
+  enabled: true
+  cert_file: /etc/ssl/certs/gateway.crt
+  key_file: /etc/ssl/private/gateway.key
+  min_version: "1.2"
+  cipher_suites:
+    - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+    - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
+  redirect_http: true
+```
+
+_Note: Ensure certificates are properly mounted in the Docker container_
+
+### Step 4: Configure security headers and policies
+Add security headers to prevent common web vulnerabilities and implement security policies
+
+**Files to modify:**
+- `tests/docker/configs/e2e-gateway-config-basic.yaml`
+
+**Example code:**
+```python
+security_headers:
+  enabled: true
+  headers:
+    X-Content-Type-Options: nosniff
+    X-Frame-Options: DENY
+    X-XSS-Protection: "1; mode=block"
+    Strict-Transport-Security: "max-age=31536000; includeSubDomains"
+    Content-Security-Policy: "default-src 'self'"
+    Referrer-Policy: strict-origin-when-cross-origin
+cors:
+  enabled: true
+  allowed_origins:
+    - https://trusted-domain.com
+  allowed_methods: ["GET", "POST"]
+  allowed_headers: ["Authorization", "Content-Type"]
+  max_age: 86400
+```
+
+_Note: Customize CSP and CORS policies based on application requirements_
+
+### Step 5: Implement rate limiting and DDoS protection
+Configure rate limiting rules to prevent abuse and potential denial of service attacks
+
+**Files to modify:**
+- `tests/docker/configs/e2e-gateway-config-basic.yaml`
+
+**Example code:**
+```python
+rate_limiting:
+  enabled: true
+  global:
+    requests_per_second: 100
+    burst: 200
+  per_client:
+    requests_per_second: 10
+    burst: 20
+    window: 60s
+  paths:
+    - path: /api/login
+      requests_per_minute: 5
+      burst: 10
+```
+
+_Note: Adjust limits based on expected traffic patterns and performance requirements_
+
+### Step 6: Enable comprehensive logging and monitoring
+Configure detailed security logging and monitoring to detect potential threats
+
+**Files to modify:**
+- `tests/docker/configs/e2e-gateway-config-basic.yaml`
+
+**Example code:**
+```python
+logging:
+  level: info
+  security_events: true
+  access_log:
+    enabled: true
+    format: json
+    fields:
+      - timestamp
+      - client_ip
+      - method
+      - path
+      - status_code
+      - user_agent
+      - response_time
+  audit_log:
+    enabled: true
+    events:
+      - authentication_failure
+      - authorization_failure
+      - rate_limit_exceeded
+      - suspicious_activity
+```
+
+_Note: Ensure logs are forwarded to a centralized logging system for analysis_
+
+### Step 7: Validate and test security configuration
+Create tests to verify that all security measures are properly configured and functioning
+
+**Files to modify:**
+- `tests/docker/configs/e2e-gateway-config-basic.yaml`
+- `tests/security/gateway_security_test.py`
+
+**Example code:**
+```python
+# tests/security/gateway_security_test.py
+def test_tls_enforcement():
+    response = requests.get('http://gateway:8080/api/test')
+    assert response.status_code == 301  # Redirect to HTTPS
+
+def test_security_headers():
+    response = requests.get('https://gateway:8443/api/test')
+    assert 'X-Content-Type-Options' in response.headers
+    assert 'Strict-Transport-Security' in response.headers
+
+def test_rate_limiting():
+    for _ in range(25):
+        response = requests.get('https://gateway:8443/api/test')
+    assert response.status_code == 429  # Too Many Requests
+```
+
+_Note: Run security tests as part of the CI/CD pipeline_
+
+## Security Considerations
+- Ensure all default credentials are changed or removed
+- Validate that sensitive configuration values use environment variables or secrets management
+- Verify TLS configuration uses strong cipher suites and current protocol versions
+- Confirm rate limiting thresholds are appropriate for the application's use case
+- Ensure logging captures sufficient detail for security monitoring without exposing sensitive data
+- Validate that CORS and CSP policies are restrictive enough to prevent unauthorized access
+
+## Best Practices
+- Use principle of least privilege for all access controls
+- Implement defense in depth with multiple security layers
+- Regular security configuration reviews and updates
+- Use automated security testing in CI/CD pipelines
+- Keep security configurations version controlled and documented
+- Monitor security logs and set up alerting for suspicious activities
+- Regular security scanning of the gateway configuration and dependencies
+
+## Acceptance Criteria
+- [ ] All HTTP traffic is redirected to HTTPS
+- [ ] Authentication is required for all protected endpoints
+- [ ] Security headers are present in all responses
+- [ ] Rate limiting is active and properly configured
+- [ ] Security events are logged with sufficient detail
+- [ ] Configuration passes automated security scanning tools
+- [ ] No default or weak credentials remain in the configuration
+- [ ] TLS configuration meets current security standards
+- [ ] CORS and CSP policies are restrictive and functional
