@@ -1,57 +1,147 @@
-# Benchmark config with WASM guard for comparison with native guards
-binds:
-- port: 8090
-  listeners:
-  - hostname: "*"
-    routes:
-    # Native PII guard route (for comparison baseline)
-    - name: native-pii
-      matches:
-      - path:
-          pathPrefix: /native-pii
-      backends:
-      - mcp:
-          securityGuards:
-          - id: pii-guard
-            type: pii
-            runs_on: [response]
-            detect: [email, credit_card, ssn, phone_number]
-            action: mask
-          targets:
-          - name: pii-test
-            mcp:
-              host: http://172.18.0.2:8000/mcp
-          statefulMode: stateful
+# Remediation Plan: 
 
-    # WASM guard route
-    - name: wasm-guard
-      matches:
-      - path:
-          pathPrefix: /wasm-guard
-      backends:
-      - mcp:
-          securityGuards:
-          - id: server-spoofing
-            type: wasm
-            runs_on: [response]
-            module_path: /Users/surindersingh/source_code/unitone-agentgateway/guards/python-guards/server-spoofing-guard-wasm/server_spoofing_guard.wasm
-            config:
-              block_unknown_servers: false
-          targets:
-          - name: pii-test
-            mcp:
-              host: http://172.18.0.2:8000/mcp
-          statefulMode: stateful
+**Severity:** medium
+**Category:** threat-model
+**Estimated Effort:** 8-12 hours
 
-    # No guard route (baseline)
-    - name: no-guard
-      matches:
-      - path:
-          pathPrefix: /no-guard
-      backends:
-      - mcp:
-          targets:
-          - name: pii-test
-            mcp:
-              host: http://172.18.0.2:8000/mcp
-          statefulMode: stateful
+## Summary
+Implement comprehensive threat modeling analysis and security controls for the WASM guard benchmark configuration to address missing threat model documentation and security considerations
+
+## Affected Components
+- wasm_guard_benchmark.yaml
+- threat_model_documentation
+- security_configuration
+- benchmark_security_controls
+
+## Implementation Steps
+### Step 1: Create threat model documentation
+Develop a comprehensive threat model document that identifies assets, threats, vulnerabilities, and mitigations for the WASM guard benchmark system
+
+**Files to modify:**
+- `docs/threat_model/wasm_guard_benchmark_threat_model.md`
+
+**Example code:**
+```python
+# WASM Guard Benchmark Threat Model
+
+## Assets
+- WASM execution environment
+- Benchmark data and results
+- System resources
+
+## Threats
+- Malicious WASM code execution
+- Resource exhaustion attacks
+- Data exfiltration
+
+## Mitigations
+- Sandboxing controls
+- Resource limits
+- Input validation
+```
+
+_Note: Use STRIDE methodology to systematically identify threats_
+
+### Step 2: Add security configuration section to YAML
+Enhance the benchmark configuration file with explicit security settings and validation rules
+
+**Files to modify:**
+- `tests/configs/wasm_guard_benchmark.yaml`
+
+**Example code:**
+```python
+security:
+  wasm_sandbox:
+    memory_limit: "128MB"
+    execution_timeout: 30
+    allowed_imports: []
+  validation:
+    max_file_size: "10MB"
+    allowed_file_types: [".wasm"]
+  monitoring:
+    log_level: "INFO"
+    audit_enabled: true
+```
+
+_Note: Define clear security boundaries and limits_
+
+### Step 3: Implement configuration validation
+Create validation logic to ensure security configurations are properly applied and validated at runtime
+
+**Files to modify:**
+- `src/security/config_validator.py`
+
+**Example code:**
+```python
+class WasmBenchmarkValidator:
+    def validate_security_config(self, config):
+        required_fields = ['memory_limit', 'execution_timeout']
+        for field in required_fields:
+            if field not in config.get('security', {}).get('wasm_sandbox', {}):
+                raise ValidationError(f"Missing required security field: {field}")
+        
+        if config['security']['wasm_sandbox']['execution_timeout'] > 60:
+            raise ValidationError("Execution timeout exceeds maximum allowed value")
+```
+
+_Note: Validate all security-critical configuration parameters_
+
+### Step 4: Add security testing configurations
+Include security-focused test scenarios in the benchmark configuration to validate security controls
+
+**Files to modify:**
+- `tests/configs/wasm_guard_benchmark.yaml`
+
+**Example code:**
+```python
+test_scenarios:
+  security_tests:
+    - name: "memory_exhaustion"
+      description: "Test memory limit enforcement"
+      expected_behavior: "terminate_with_limit_exceeded"
+    - name: "infinite_loop"
+      description: "Test execution timeout"
+      expected_behavior: "terminate_with_timeout"
+```
+
+_Note: Include both positive and negative security test cases_
+
+### Step 5: Document security architecture decisions
+Create architectural documentation explaining security design decisions and rationale for the WASM guard benchmark system
+
+**Files to modify:**
+- `docs/architecture/security_architecture.md`
+
+**Example code:**
+```python
+## Security Architecture Decisions
+
+### Decision: WASM Sandboxing Approach
+**Context**: Need to execute untrusted WASM code safely
+**Decision**: Implement multi-layer sandboxing with resource limits
+**Rationale**: Defense in depth approach prevents various attack vectors
+**Consequences**: Slight performance overhead but significant security improvement
+```
+
+_Note: Use ADR (Architecture Decision Record) format for consistency_
+
+## Security Considerations
+- Ensure WASM execution is properly sandboxed to prevent escape attacks
+- Implement comprehensive resource limits to prevent denial of service
+- Validate all configuration inputs to prevent injection attacks
+- Log security events for monitoring and incident response
+- Regularly review and update threat model as system evolves
+
+## Best Practices
+- Apply principle of least privilege to WASM execution environment
+- Use defense in depth with multiple security layers
+- Implement fail-secure defaults in configuration
+- Maintain separation of concerns between benchmark logic and security controls
+- Document all security assumptions and dependencies
+
+## Acceptance Criteria
+- [ ] Threat model document covers all major attack vectors and mitigations
+- [ ] Security configuration section is present and validated in YAML
+- [ ] All security-critical parameters have validation rules implemented
+- [ ] Security test scenarios execute successfully and verify control effectiveness
+- [ ] Security architecture decisions are documented with clear rationale
