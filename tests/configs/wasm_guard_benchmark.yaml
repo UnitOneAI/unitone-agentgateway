@@ -1,57 +1,239 @@
-# Benchmark config with WASM guard for comparison with native guards
-binds:
-- port: 8090
-  listeners:
-  - hostname: "*"
-    routes:
-    # Native PII guard route (for comparison baseline)
-    - name: native-pii
-      matches:
-      - path:
-          pathPrefix: /native-pii
-      backends:
-      - mcp:
-          securityGuards:
-          - id: pii-guard
-            type: pii
-            runs_on: [response]
-            detect: [email, credit_card, ssn, phone_number]
-            action: mask
-          targets:
-          - name: pii-test
-            mcp:
-              host: http://172.18.0.2:8000/mcp
-          statefulMode: stateful
+# Remediation Plan: 
 
-    # WASM guard route
-    - name: wasm-guard
-      matches:
-      - path:
-          pathPrefix: /wasm-guard
-      backends:
-      - mcp:
-          securityGuards:
-          - id: server-spoofing
-            type: wasm
-            runs_on: [response]
-            module_path: /Users/surindersingh/source_code/unitone-agentgateway/guards/python-guards/server-spoofing-guard-wasm/server_spoofing_guard.wasm
-            config:
-              block_unknown_servers: false
-          targets:
-          - name: pii-test
-            mcp:
-              host: http://172.18.0.2:8000/mcp
-          statefulMode: stateful
+**Severity:** medium
+**Category:** threat-model
+**Estimated Effort:** 12-16 hours
 
-    # No guard route (baseline)
-    - name: no-guard
-      matches:
-      - path:
-          pathPrefix: /no-guard
-      backends:
-      - mcp:
-          targets:
-          - name: pii-test
-            mcp:
-              host: http://172.18.0.2:8000/mcp
-          statefulMode: stateful
+## Summary
+Implement comprehensive threat modeling documentation and security controls for the WASM guard benchmark configuration to address missing threat analysis and security considerations
+
+## Affected Components
+- WASM Guard Benchmark
+- Configuration Management
+- Security Documentation
+- Test Infrastructure
+
+## Implementation Steps
+### Step 1: Create threat model documentation
+Create a comprehensive threat model document that identifies assets, threats, vulnerabilities, and mitigations for the WASM guard benchmark system
+
+**Files to modify:**
+- `docs/security/wasm_guard_threat_model.md`
+
+**Example code:**
+```python
+# WASM Guard Benchmark Threat Model
+
+## Assets
+- WASM execution environment
+- Benchmark data and results
+- Configuration files
+- System resources
+
+## Threats
+- Malicious WASM code execution
+- Resource exhaustion attacks
+- Configuration tampering
+- Data exfiltration
+
+## Attack Vectors
+- Untrusted WASM modules
+- Configuration injection
+- Memory corruption
+- Side-channel attacks
+```
+
+_Note: Follow STRIDE methodology to systematically identify threats_
+
+### Step 2: Add security validation to benchmark configuration
+Implement configuration validation to ensure security parameters are properly set and within safe limits
+
+**Files to modify:**
+- `tests/configs/wasm_guard_benchmark.yaml`
+
+**Example code:**
+```python
+security:
+  max_memory_mb: 128
+  max_execution_time_ms: 5000
+  allowed_imports:
+    - "env.memory"
+    - "env.table"
+  blocked_exports:
+    - "__heap_base"
+  sandbox_mode: strict
+  resource_limits:
+    max_stack_size: 1048576
+    max_globals: 100
+validation:
+  schema_version: "1.0"
+  enforce_limits: true
+  fail_on_violation: true
+```
+
+_Note: Define strict resource limits to prevent abuse_
+
+### Step 3: Implement configuration schema validation
+Create a JSON schema validator to ensure all security-related configuration parameters are present and valid
+
+**Files to modify:**
+- `src/security/config_validator.py`
+- `schemas/wasm_benchmark_config.json`
+
+**Example code:**
+```python
+import jsonschema
+import yaml
+
+class WASMConfigValidator:
+    def __init__(self, schema_path):
+        with open(schema_path, 'r') as f:
+            self.schema = json.load(f)
+    
+    def validate_config(self, config_path):
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+        
+        # Validate against schema
+        jsonschema.validate(config, self.schema)
+        
+        # Additional security checks
+        self._check_security_params(config)
+        return True
+    
+    def _check_security_params(self, config):
+        if 'security' not in config:
+            raise ValueError('Security section required')
+        
+        security = config['security']
+        if security.get('max_memory_mb', 0) > 512:
+            raise ValueError('Memory limit too high')
+```
+
+_Note: Validate both schema compliance and security constraints_
+
+### Step 4: Add security monitoring and logging
+Implement comprehensive logging and monitoring for security events during benchmark execution
+
+**Files to modify:**
+- `src/monitoring/security_monitor.py`
+
+**Example code:**
+```python
+import logging
+import time
+
+class WASMSecurityMonitor:
+    def __init__(self):
+        self.logger = logging.getLogger('wasm.security')
+        self.security_events = []
+    
+    def log_security_event(self, event_type, details, severity='INFO'):
+        event = {
+            'timestamp': time.time(),
+            'type': event_type,
+            'details': details,
+            'severity': severity
+        }
+        self.security_events.append(event)
+        self.logger.log(getattr(logging, severity), f'{event_type}: {details}')
+    
+    def check_resource_limits(self, current_usage, limits):
+        if current_usage['memory'] > limits['max_memory_mb'] * 1024 * 1024:
+            self.log_security_event('MEMORY_LIMIT_EXCEEDED', 
+                                   f'Memory usage: {current_usage["memory"]}', 'WARNING')
+```
+
+_Note: Monitor for security violations during execution_
+
+### Step 5: Create security test cases
+Develop specific test cases to validate security controls and threat mitigations
+
+**Files to modify:**
+- `tests/security/test_wasm_security.py`
+
+**Example code:**
+```python
+import pytest
+from src.security.config_validator import WASMConfigValidator
+
+class TestWASMSecurity:
+    def test_malicious_config_rejected(self):
+        validator = WASMConfigValidator('schemas/wasm_benchmark_config.json')
+        
+        # Test configuration with dangerous settings
+        with pytest.raises(ValueError, match='Memory limit too high'):
+            validator.validate_config('tests/fixtures/malicious_config.yaml')
+    
+    def test_resource_limits_enforced(self):
+        # Test that resource limits are properly enforced
+        monitor = WASMSecurityMonitor()
+        usage = {'memory': 1024 * 1024 * 1024}  # 1GB
+        limits = {'max_memory_mb': 128}
+        
+        monitor.check_resource_limits(usage, limits)
+        assert any(event['type'] == 'MEMORY_LIMIT_EXCEEDED' for event in monitor.security_events)
+    
+    def test_configuration_tampering_detection(self):
+        # Test detection of configuration file tampering
+        pass
+```
+
+_Note: Include negative test cases for security violations_
+
+### Step 6: Update CI/CD pipeline security checks
+Integrate security validation into the continuous integration pipeline
+
+**Files to modify:**
+- `.github/workflows/security-checks.yml`
+
+**Example code:**
+```python
+name: Security Validation
+on: [push, pull_request]
+
+jobs:
+  security-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Validate WASM configurations
+        run: |
+          python -m src.security.config_validator tests/configs/wasm_guard_benchmark.yaml
+      - name: Run security tests
+        run: |
+          pytest tests/security/ -v
+      - name: Security scan
+        run: |
+          bandit -r src/ -f json -o security-report.json
+```
+
+_Note: Ensure security checks run on every code change_
+
+## Security Considerations
+- Implement strict resource limits to prevent denial of service attacks
+- Validate all configuration inputs to prevent injection attacks
+- Monitor and log security events for incident response
+- Use principle of least privilege for WASM module permissions
+- Implement sandboxing to contain potentially malicious code
+- Regular security assessments and penetration testing
+- Secure configuration file storage and access controls
+
+## Best Practices
+- Follow STRIDE methodology for systematic threat identification
+- Implement defense-in-depth with multiple security layers
+- Use schema validation for configuration security
+- Maintain comprehensive security logging and monitoring
+- Regular security testing and validation
+- Document all security assumptions and requirements
+- Implement fail-safe defaults in security configurations
+
+## Acceptance Criteria
+- [ ] Comprehensive threat model document created and reviewed
+- [ ] All security configuration parameters validated against schema
+- [ ] Resource limits properly enforced during benchmark execution
+- [ ] Security monitoring captures and logs all relevant events
+- [ ] Security test suite achieves 100% pass rate
+- [ ] CI/CD pipeline includes automated security validation
+- [ ] Configuration tampering detection mechanisms implemented
+- [ ] Security documentation updated and accessible to team
