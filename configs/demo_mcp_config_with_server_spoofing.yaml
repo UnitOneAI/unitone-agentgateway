@@ -1,83 +1,133 @@
-# Demo config with tool_poisoning + server_spoofing_guard (WASM)
-# This config adds Python server_spoofing_guard as second security guard
-binds:
-- port: 8080
-  listeners:
-  - routes:
-    # Admin UI route
-    - name: ui-route
-      matches:
-      - path:
-          pathPrefix: /ui
-      backends:
-      - host: 127.0.0.1:15000
+# Remediation Plan: 
 
-    # Admin API route
-    - name: admin-api-route
-      matches:
-      - path:
-          pathPrefix: /config
-      backends:
-      - host: 127.0.0.1:15000
+**Severity:** medium
+**Category:** threat-model
+**Estimated Effort:** 4-6 hours
 
-    # Tool poisoning test route with both guards
-    - hostnames: []
-      matches:
-      - path:
-          pathPrefix: /poison
-      backends:
-      - mcp:
-          securityGuards:
-          # Native Rust guard - tool poisoning detection
-          - id: tool-poisoning
-            type: tool_poisoning
-            enabled: true
-            priority: 100
-            failure_mode: fail_closed
-            timeout_ms: 50
-            runs_on:
-            - request
-            - response
-            strict_mode: true
-            scan_fields:
-            - name
-            - description
+## Summary
+Remove or secure the demo configuration file that appears to be designed for server spoofing testing to prevent potential misuse in production environments
 
-          # WASM Python guard - server spoofing detection
-          # Uses connection phase for pre-connection validation (whitelist, typosquat)
-          # Uses tools_list phase for tool mimicry detection
-          - id: server-spoofing-guard
-            type: wasm
-            enabled: true
-            priority: 10
-            failure_mode: fail_closed
-            timeout_ms: 100
-            runs_on:
-            - connection
-            - tools_list
-            module_path: ./guards/python-guards/server-spoofing-guard-wasm/server_spoofing_guard.wasm
-            config:
-              whitelist:
-                - name: "poison"
-                  url_pattern: "http://127\\.0\\.0\\.1:8010/.*"
-              block_unknown_servers: false
-              typosquat_similarity_threshold: 0.85
+## Affected Components
+- MCP configuration
+- Server authentication
+- Demo/test environments
 
-          targets:
-          - name: poison
-            mcp:
-              host: http://127.0.0.1:8010/mcp
-          statefulMode: stateful
-      name: tool-poisoning-with-server-spoofing
-      policies:
-        cors:
-          allowCredentials: false
-          allowHeaders:
-          - '*'
-          allowMethods:
-          - '*'
-          allowOrigins:
-          - '*'
-          exposeHeaders:
-          - mcp-session-id
-          maxAge: null
+## Implementation Steps
+### Step 1: Analyze the spoofing configuration file
+Review the contents of the demo configuration file to understand what spoofing capabilities it enables and assess the security implications
+
+**Files to modify:**
+- `configs/demo_mcp_config_with_server_spoofing.yaml`
+
+**Example code:**
+```python
+# Review configuration for entries like:
+# server_validation: false
+# allow_untrusted_certificates: true
+# bypass_authentication: true
+# Or similar security-bypassing settings
+```
+
+_Note: Document all security controls that are disabled or bypassed in this configuration_
+
+### Step 2: Move configuration to secure test environment
+Relocate the spoofing configuration to a dedicated test directory with restricted access and clear naming conventions
+
+**Files to modify:**
+- `configs/demo_mcp_config_with_server_spoofing.yaml`
+
+**Example code:**
+```python
+# Move file to:
+# tests/security/configs/test_server_spoofing_demo.yaml
+# Or delete entirely if no longer needed
+```
+
+_Note: Ensure the new location is not included in production builds or deployments_
+
+### Step 3: Add configuration validation
+Implement validation to prevent spoofing configurations from being loaded in non-development environments
+
+**Files to modify:**
+- `src/config/config_loader.py`
+- `src/config/validator.py`
+
+**Example code:**
+```python
+def validate_config_security(config):
+    if os.getenv('ENVIRONMENT') == 'production':
+        forbidden_settings = [
+            'allow_server_spoofing',
+            'bypass_authentication',
+            'disable_ssl_verification'
+        ]
+        for setting in forbidden_settings:
+            if config.get(setting, False):
+                raise SecurityError(f"Setting '{setting}' not allowed in production")
+    return config
+```
+
+_Note: This validation should run during application startup_
+
+### Step 4: Implement secure server verification
+Ensure proper server authentication and verification mechanisms are in place for production configurations
+
+**Files to modify:**
+- `src/mcp/server_client.py`
+
+**Example code:**
+```python
+def verify_server_identity(server_config):
+    # Verify certificate chain
+    if not verify_certificate_chain(server_config['certificate']):
+        raise AuthenticationError("Invalid server certificate")
+    
+    # Verify server identity
+    if not verify_server_hostname(server_config['hostname']):
+        raise AuthenticationError("Server hostname verification failed")
+    
+    # Additional identity checks
+    return True
+```
+
+_Note: All server connections should enforce strict identity verification by default_
+
+### Step 5: Add security warnings and documentation
+Create clear documentation about the security implications of test configurations and add runtime warnings
+
+**Files to modify:**
+- `README.md`
+- `docs/security.md`
+- `src/config/config_loader.py`
+
+**Example code:**
+```python
+# In config loader:
+if config.get('allow_server_spoofing'):
+    logger.warning("SECURITY WARNING: Server spoofing is enabled. This should only be used in test environments.")
+    if os.getenv('ENVIRONMENT') != 'development':
+        logger.error("Server spoofing configuration detected in non-development environment")
+```
+
+_Note: Documentation should clearly explain when and why spoofing configurations might be used_
+
+## Security Considerations
+- Ensure spoofing capabilities cannot be accidentally enabled in production
+- Implement proper certificate validation and hostname verification
+- Add environment-specific configuration validation
+- Log security-relevant configuration changes for audit purposes
+- Restrict access to test configurations containing security bypasses
+
+## Best Practices
+- Separate test/demo configurations from production configurations
+- Use environment variables to control security-sensitive features
+- Implement fail-safe defaults (secure by default)
+- Add clear warnings when security features are disabled
+- Regular security review of all configuration templates
+
+## Acceptance Criteria
+- [ ] Demo spoofing configuration is removed from main configs directory or properly secured
+- [ ] Configuration validation prevents spoofing settings in production
+- [ ] Server identity verification is properly implemented and cannot be bypassed
+- [ ] Security warnings are logged when test configurations are loaded
+- [ ] Documentation clearly explains proper use of test configurations
