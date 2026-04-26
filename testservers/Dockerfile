@@ -12,6 +12,11 @@ RUN pip install --no-cache-dir .
 COPY start-server.sh .
 RUN chmod +x start-server.sh
 
+# Create non-root user
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+RUN chown -R appuser:appuser /app
+USER appuser
+
 # Environment variables for configuration
 ENV MCP_HOST=0.0.0.0
 
