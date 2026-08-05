@@ -23,7 +23,9 @@ try:
     from Levenshtein import ratio as levenshtein_ratio
 except ImportError:
     # Fallback implementation if python-Levenshtein not installed
-    def levenshtein_ratio(s1: str, s2: str) -> float:
+    # Add homoglyph detection and visual similarity checks
+# Consider using Unicode normalization
+# Implement domain reputation checking
         if not s1 or not s2:
             return 0.0
         if s1 == s2:
